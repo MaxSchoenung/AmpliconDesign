@@ -868,3 +868,21 @@ region_heatmap <- function(set,bed_ranges,co=T,co_num){
   rownames(meth.set1) <- paste0(ids$seqnames,":",ids$start)
   pheatmap::pheatmap(meth.set1,cluster_rows = F,cluster_cols = F)
 }
+
+
+isUCSCstlye <- function(x){
+  chr.ind <- stringr::str_split_fixed(x,":",2)[,1]
+  num.ind <- stringr::str_split_fixed(x,":",2)[,2]
+  num.start <- as.numeric(stringr::str_split_fixed(num.ind,"-",2)[,1])
+  num.end <- as.numeric(stringr::str_split_fixed(num.ind,"-",2)[,2])
+  ret <- TRUE
+  if(sum(chr.ind%in%paste0("chr",c(1:22,"X","y")))!=length(chr.ind)){
+    ret <- FALSE
+  }
+  if(sum(is.na(num.end))>0|sum(is.na(num.start))>0){
+    ret <- FALSE
+  }else if(sum(num.start>num.end)>0){
+    ret <- FALSE
+  }
+  return(ret)
+}

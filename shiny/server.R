@@ -772,6 +772,9 @@ server <- function(input,output,session){
 #                                                                 #
 ###################################################################
 
+    ## initialize warnings
+    output$clicked_bs <- renderText("no")
+    outputOptions(output, "clicked_bs", suspendWhenHidden=FALSE)
 
   output$uiBisulfit <- renderUI({
 
@@ -826,6 +829,14 @@ server <- function(input,output,session){
       comma <- stringr::str_split(input$cgID,"/")[[1]]
       print(comma)
       print(input$selectGenomeBisulfit)
+      
+      ## generate a warning message
+      if(length(grep(pattern = "cg",comma))!=length(comma)){
+        showNotification(paste("Illumina CpG ID not valid. Please enter valid ID e.g. cg12445832. Separate CpG IDs by '/'."), duration = 0,type="error")
+        output$clicked_bs <- renderText("no")
+      }else{
+        output$clicked_bs <- renderText("yes")
+      }
 
       #advanced extenstion method
       if(!is.null(input$regionExtend)){
@@ -889,6 +900,15 @@ server <- function(input,output,session){
     }else if(input$uiInputChoiceBisulfit == "coord"){
 
       req(input$genomicCoord)
+      
+      ### check the input
+      names_coord <- stringr::str_split(input$genomicCoord,"/")[[1]]
+      if(!isUCSCstlye(names_coord)){
+        showNotification(paste("Genomic coordinates need to be in UCSC style e.g. 'chr19:43204328-43203689' for the selected genomic region."), duration = 0,type="error")
+        output$clicked_bs <- renderText("no")}else{
+          output$clicked_bs <- renderText("yes")
+        }
+      
       #single cpg coordinates
       coord.vec <- GenomicRanges::GRanges(stringr::str_split(input$genomicCoord,"/")[[1]])
       coord.vec_amp <- as.data.frame(stringr::str_split(input$genomicCoord,"/")[[1]])
@@ -960,6 +980,15 @@ server <- function(input,output,session){
       inFile <- inFile$datapath
       amplicons <- seqinr::read.fasta(inFile,as.string = T,set.attributes = F)
       names_amp <- names(amplicons)
+      
+      ####### warning messages for fasta names
+      if(!isUCSCstlye(names_amp)){
+        showNotification(paste("FASTA sequence names need to be in UCSC style e.g. 'chr19:43204328-43203689' for the selected genomic region."), duration = 0,type="error")
+        output$clicked_bs <- renderText("no")
+      }else{
+        output$clicked_bs <- renderText("yes")
+        }
+      
       amplicons <- toupper(amplicons)
       names(amplicons) <- names_amp
       amp_minus <- secStrand(amplicons)
@@ -1607,7 +1636,6 @@ observeEvent(input$AMP_sampleData,{
     num.ind <- stringr::str_split_fixed(region,":",2)[,2]
     num.start <- as.numeric(stringr::str_split_fixed(num.ind,"-",2)[,1])
     num.end <- as.numeric(stringr::str_split_fixed(num.ind,"-",2)[,2])
-    
     output$clicked_ma <- renderText("yes")
     if(!chr.ind%in%paste0("chr",c(1:22,"X","Y"))){
       showNotification(paste("The chromosome index does not exist. Please insert in this format 'chr19:43204328-43203689'."), duration = 0,type="error")
@@ -1624,20 +1652,19 @@ observeEvent(input$AMP_sampleData,{
     
 
 # Warning AmpBS-Seq -------------------------------------------------------
-    output$clicked_bs <- renderText("no")
-    outputOptions(output, "clicked_bs", suspendWhenHidden=FALSE)
-    observeEvent(input$SubmitBTNRegionBisulfit,{
-      if(input$uiInputChoiceBisulfit == "fasta"){
-        ## check for valid sequence and genome coordinate style header
-      }else if(input$uiInputChoiceBisulfit == "coord"){
-        ## check for proper coordinate
-      }else if(input$uiInputChoiceBisulfit == "cpgID"){  
-        ## check if this is actually on the array IF nrow dt == 0 (sonst rechnet das zu lange)
-      }else{
-        ## check primer design parameter IF nrow dt == 0 
-        ## also give a warning if this happens that the region might either be CG rich or the parameters do not fit
-      }
-    })
+  
+    # observeEvent(input$SubmitBTNRegionBisulfit,{
+    #   if(input$uiInputChoiceBisulfit == "fasta"){
+    #     
+    #   }else if(input$uiInputChoiceBisulfit == "coord"){
+    # 
+    #   }else if(input$uiInputChoiceBisulfit == "cpgID"){  
+    #     ## check if this is actually on the array IF nrow dt == 0 (sonst rechnet das zu lange)
+    #   }else{
+    #     ## check primer design parameter IF nrow dt == 0 
+    #     ## also give a warning if this happens that the region might either be CG rich or the parameters do not fit
+    #   }
+    # })
     
 
 }
