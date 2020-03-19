@@ -1,0 +1,25 @@
+version: '3.3'
+
+
+services:
+  db:
+    build: ./database
+    container_name: ampliconDB
+    ports:
+      - "5432:5432"
+    networks:
+      services-network:
+        aliases:
+         - db
+
+  initializer:
+    build: ./databaseInitializer
+    container_name: initializer
+    networks:
+      services-network:
+        aliases:
+         - initializer
+
+networks:
+   services-network:
+     driver: bridge

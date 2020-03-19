@@ -1,0 +1,3 @@
+[submodule "processing_pipeline"]
+	path = processing_pipeline
+	url = https://github.com/HeyLifeHD/amplicon_bisulfite_seq_pipeline
