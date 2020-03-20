@@ -629,7 +629,7 @@ server <- function(input,output,session){
 
     outputDesignedPrimers <- reactive({
       req(pr_design())
-        MA_table <<- cutTable(d=0,NULL,NULL)
+        MA_table <<- cutTable(d=0,NULL,NULL,input$selectGenome)
     })
     # output$primerDesign <- renderTable({
     #   outputDesignedPrimers()
@@ -891,8 +891,8 @@ server <- function(input,output,session){
                                   primerNumber = input$nPrimer)
 
       # print table that contains all possible primers
-      cutTable(input$uiHandles,adapter_fwd(),adapter_rev())
-      primer.table <<- cutTable(input$uiHandles,adapter_fwd(),adapter_rev())
+      cutTable(input$uiHandles,adapter_fwd(),adapter_rev(),input$selectGenomeBisulfit)
+      primer.table <<- cutTable(input$uiHandles,adapter_fwd(),adapter_rev(),input$selectGenomeBisulfit)
 
 
 # Design primer based on genomic coordinates ------------------------------
@@ -966,9 +966,9 @@ server <- function(input,output,session){
 
       # print table that contains all possible primers
       cutTable(input$uiHandles,#input$uiAdaptF,
-               adapter_fwd(),adapter_rev())
+               adapter_fwd(),adapter_rev(),input$selectGenomeBisulfit)
       primer.table <<- cutTable(input$uiHandles,#input$uiAdaptF,
-                                adapter_fwd(),adapter_rev())
+                                adapter_fwd(),adapter_rev(),input$selectGenomeBisulfit)
 
 
 # Input as FASTA ----------------------------------------------------------
@@ -1028,8 +1028,8 @@ server <- function(input,output,session){
                                   primerNumber = input$nPrimer)
 
       # print table that contains all possible primers
-      cutTable(input$uiHandles,adapter_fwd(),adapter_rev())
-      primer.table <<- cutTable(input$uiHandles,adapter_fwd(),adapter_rev())
+      cutTable(input$uiHandles,adapter_fwd(),adapter_rev(),input$selectGenomeBisulfit)
+      primer.table <<- cutTable(input$uiHandles,adapter_fwd(),adapter_rev(),input$selectGenomeBisulfit)
     }
   })
 

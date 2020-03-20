@@ -460,7 +460,7 @@ generate_amplicons_coord <- function(x,g,extend=0,bs_convert=TRUE){
 
 
 
-cutTable <- function(d,handles_f,handles_r){
+cutTable <- function(d,handles_f,handles_r,in.genome){
 
   output.primer <- read.table(output)
   ret <- matrix(nrow=10,ncol =17)
@@ -471,7 +471,7 @@ cutTable <- function(d,handles_f,handles_r){
   #for each amplicon produce a matrix that contains the primer info and add the matrices together
   for(i in 2:length(text)){
     tmp <- ret
-    ret <- produceOutput(strsplit(text[i],"[,=]")[[1]],i-1)
+    ret <- produceOutput(strsplit(text[i],"[,=]")[[1]],i-1,in.genome = in.genome)
     if(!is.na(tmp[1][1])){
       ret <- rbind(tmp,ret)
     }
@@ -485,7 +485,7 @@ cutTable <- function(d,handles_f,handles_r){
 }
 
 
-produceOutput <- function(output_split,numberOfAmplicon){
+produceOutput <- function(output_split,numberOfAmplicon,in.genome){
 
   #save primer id from output
   id <- toString(output_split[2])
@@ -557,7 +557,7 @@ produceOutput <- function(output_split,numberOfAmplicon){
                                               ,"CG")}else{
                                                 mat[count,19] <- stringr::str_count(as.character(discoverSequence(chr_loc[1,1],
                                                                                                                   as.numeric(chr_loc[2,1]),
-                                                                                                                  as.numeric(chr_loc[2,2]),"hg19")),"CG")}
+                                                                                                                  as.numeric(chr_loc[2,2]),in.genome)),"CG")}
         count <- count+1
 
       }
