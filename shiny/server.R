@@ -1127,26 +1127,26 @@ server <- function(input,output,session){
                                    strand()
                                    )),
                        br(),
-                       actionButton("BS_blast_primer","Blast Primer against BS genome"),
+                       actionButton("BS_bsalign_primer","BisAlign Primer against BS genome"),
                        br(),
-                       conditionalPanel(id='bs_primer_blast_cond',
-                                        condition = "input.BS_blast_primer%2==1",
+                       conditionalPanel(id='bs_primer_bsalign_cond',
+                                        condition = "input.BS_bsalign_primer%2==1",
                                         tabsetPanel(
                                         tabPanel("Forward",
-                                                 DT::renderDataTable(primer_bs_blast(primerF(),path_to_genome=paste0("/var/ressources/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa")))
+                                                 DT::renderDataTable(primer_bs_bsalign(primerF(),path_to_genome=paste0("/var/ressources/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa")))
                                                  ),
                                         tabPanel("Reverse",
-                                                 DT::renderDataTable(primer_bs_blast(primerR(),path_to_genome=paste0("/var/ressources/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa")))
+                                                 DT::renderDataTable(primer_bs_bsalign(primerR(),path_to_genome=paste0("/var/ressources/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa")))
                                                  )
                                         ))
                        )
-                       # h3("Primer blast against bisulfite converted reference genome"),
+                       # h3("Primer bsalign against bisulfite converted reference genome"),
                        # h5("Forward"),
-                       # DT::renderDataTable(primer_bs_blast(primerF(),path_to_genome=paste0("/var/ressources/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa"))),
-                       # #MAC#DT::renderDataTable(primer_bs_blast(primerF(),path_to_bowtie="/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/bowtie",path_to_genome=paste0("/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/genomes/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa"))),
+                       # DT::renderDataTable(primer_bs_bsalign(primerF(),path_to_genome=paste0("/var/ressources/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa"))),
+                       # #MAC#DT::renderDataTable(primer_bs_bsalign(primerF(),path_to_bowtie="/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/bowtie",path_to_genome=paste0("/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/genomes/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa"))),
                        # h5("Reverse"),
-                       # DT::renderDataTable(primer_bs_blast(primerR(),path_to_genome=paste0("/var/ressources/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa")))
-                       # #MAC#DT::renderDataTable(primer_bs_blast(primerR(),path_to_bowtie="/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/bowtie",path_to_genome=paste0("/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/genomes/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa")))
+                       # DT::renderDataTable(primer_bs_bsalign(primerR(),path_to_genome=paste0("/var/ressources/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa")))
+                       # #MAC#DT::renderDataTable(primer_bs_bsalign(primerR(),path_to_bowtie="/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/bowtie",path_to_genome=paste0("/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/genomes/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa")))
                        )
 
   })
@@ -1279,9 +1279,9 @@ output$settings <- renderTable(
   #                     selected = "inputRegion_tabset")
   # })
 
-  observeEvent(input$submit_blast, {
-    updateTabsetPanel(session, "bisblast",
-                      selected = "blast_query")
+  observeEvent(input$submit_bsalign, {
+    updateTabsetPanel(session, "bisbsalign",
+                      selected = "bsalign_query")
   })
 
   # observeEvent(input$submit_analysis, {
@@ -1300,18 +1300,18 @@ observeEvent(input$AMP_sampleData,{
 })
 
 
-# BisBlast ----------------------------------------------------------------
+# Bisbsalign ----------------------------------------------------------------
 
-  blast_coord <- eventReactive(input$submit_blast,{
-    input$blast_in
+  bsalign_coord <- eventReactive(input$submit_bsalign,{
+    input$bsalign_in
   })
 
-  output$blast_table <- DT::renderDataTable(
-    primer_bs_blast(blast_coord(),path_to_genome=paste0("/var/ressources/",input$selectGenome_blast,"_bowtie_ct_ga_indexed.fa")))
-    #MAC#primer_bs_blast(blast_coord(),path_to_bowtie="/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/bowtie",path_to_genome=paste0("/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/genomes/",input$selectGenome_blast,"_bowtie_ct_ga_indexed.fa")))
+  output$bsalign_table <- DT::renderDataTable(
+    primer_bs_bsalign(bsalign_coord(),path_to_genome=paste0("/var/ressources/",input$selectGenome_bsalign,"_bowtie_ct_ga_indexed.fa")))
+    #MAC#primer_bs_bsalign(bsalign_coord(),path_to_bowtie="/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/bowtie",path_to_genome=paste0("/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/genomes/",input$selectGenome_bsalign,"_bowtie_ct_ga_indexed.fa")))
 
-  # observeEvent(input$submit_blast, {
-  #   primer_bs_blast(input$blast_in,path_to_genome=paste0("/var/ressources/",input$selectGenome_blast,"_bowtie_ct_ga_indexed.fa"))
+  # observeEvent(input$submit_bsalign, {
+  #   primer_bs_bsalign(input$bsalign_in,path_to_genome=paste0("/var/ressources/",input$selectGenome_bsalign,"_bowtie_ct_ga_indexed.fa"))
   # })
 
 # Interactive data from help ----------------------------------------------
@@ -1571,8 +1571,20 @@ observeEvent(input$AMP_sampleData,{
 
 
   # enable download of count and coverage matrix and report
-  # make sample data available
-  # write help section
+    output$downloadBut_ampBScov <- renderUI({
+      downloadButton("amp_txt", "Download Beta-Value Matrix")
+    })
+    
+    output$amp_txt <- downloadHandler(
+      filename = "beta_value_matrix.txt",
+      content = function(filecov){
+        
+    meth.set1 <- BiSeq::rawToRel(methSet_filtR())
+    meth.set2 <- SummarizedExperiment::assay(meth.set1)
+    ids <- as.data.frame(SummarizedExperiment::rowRanges(meth.set1))
+    rownames(meth.set2) <- paste0(ids$seqnames,":",ids$start)
+    write.table(meth.set2,file = filecov,sep="\t",row.names = T,quote=F)
+      })
 
 # Load sample data for the pipeline ---------------------------------------
 
@@ -1649,22 +1661,7 @@ observeEvent(input$AMP_sampleData,{
     }
       })
     
-    
 
-# Warning AmpBS-Seq -------------------------------------------------------
-  
-    # observeEvent(input$SubmitBTNRegionBisulfit,{
-    #   if(input$uiInputChoiceBisulfit == "fasta"){
-    #     
-    #   }else if(input$uiInputChoiceBisulfit == "coord"){
-    # 
-    #   }else if(input$uiInputChoiceBisulfit == "cpgID"){  
-    #     ## check if this is actually on the array IF nrow dt == 0 (sonst rechnet das zu lange)
-    #   }else{
-    #     ## check primer design parameter IF nrow dt == 0 
-    #     ## also give a warning if this happens that the region might either be CG rich or the parameters do not fit
-    #   }
-    # })
     
 
 }

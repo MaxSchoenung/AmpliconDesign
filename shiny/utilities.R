@@ -703,18 +703,18 @@ gviz_primer <- function(genome,chr,begin,end,primer_fwd.start,primer_fwd.length,
 #                                                                 #
 #                                                                 #
 #                                                                 #
-#                 PrimerBlast Functions                           #
+#                 Primerbsalign Functions                           #
 #                                                                 #
 #                                                                 #
 #                                                                 #
 ###################################################################
 
-primer_bs_blast <- function(primer_vec,
+primer_bs_bsalign <- function(primer_vec,
                             path_to_bowtie="/srv/shiny-server/software/bowtie-1.2.2/bowtie",
                             path_to_genome="/var/ressources/hg19_bowtie_ct_ga_indexed.fa",
                             k=10){
 
-# bowtie /C010-projects/Maxi_Schönung/Computational/genomes/genomes_bs_blast/hg19_bowtie_ct_ga_indexed.fa -c CACAaCCTCCCCAAaTaCTa -k 20 --large-index
+# bowtie /C010-projects/Maxi_Schönung/Computational/genomes/genomes_bs_bsalign/hg19_bowtie_ct_ga_indexed.fa -c CACAaCCTCCCCAAaTaCTa -k 20 --large-index
 
   align <<- tempfile()
   system(paste(path_to_bowtie,path_to_genome,"-c",paste(primer_vec,collapse = ","),"-k",k,"--large-index >",align))

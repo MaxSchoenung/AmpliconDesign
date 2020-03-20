@@ -333,34 +333,34 @@ ui <- navbarPage(strong("AmpliconDesign"),id="page",
                   ),
 
 
-#BisBlast Section ------------------------------------------------------------
-tabPanel("BisBlast",
+#Bisbsalign Section ------------------------------------------------------------
+tabPanel("BisAlign",
          add_busy_spinner(spin = "fading-circle",position="full-page"),
          sidebarLayout(
            sidebarPanel(
-           selectInput("selectGenome_blast","Select genome",
+           selectInput("selectGenome_bsalign","Select genome",
                        c("Human GRCh37/hg19" = "hg19",
                          "Human GRCh38/hg38" = "hg38",
                          "Mouse GRCm38/mm10" = "mm10"
                        ),width ="200px"),
-           textInput("blast_in","Primer Input"),
-           actionButton("submit_blast","Submit"),
+           textInput("bsalign_in","Primer Input"),
+           actionButton("submit_bsalign","Submit"),
            width=2
 
            ),
            mainPanel(
              tabsetPanel(
-               id="bisblast",
+               id="bisbsalign",
                tabPanel("Home",
-                 h1(strong("BisBlast"),align="center"),
-                 includeMarkdown("blast_main.Rmd")
+                 h1(strong("BisAlign"),align="center"),
+                 includeMarkdown("bsalign_main.Rmd")
                  ),
-               tabPanel("Query Results",value="blast_query",
+               tabPanel("Query Results",value="bsalign_query",
                  h1(strong("Results"),align="center"),
-                 conditionalPanel(condition="input.submit_blast==0",
+                 conditionalPanel(condition="input.submit_bsalign==0",
                                   br(),
-                                  column(12,align="center",p("BisBlast query results will be displayed here."))),
-                 DT::dataTableOutput("blast_table")
+                                  column(12,align="center",p("BisAlign query results will be displayed here."))),
+                 DT::dataTableOutput("bsalign_table")
                )
 
              )
@@ -496,7 +496,9 @@ tabPanel("Analysis Pipeline",
                            conditionalPanel(condition="output.clicked_ampBS=='yes'",
                                             br(),
                                             column(12,align="center",
-                                                   uiOutput("downloadBut_ampBS")
+                                                   uiOutput("downloadBut_ampBS"),
+                                                   br(),
+                                                   uiOutput("downloadBut_ampBScov")
                                                    ))
 
 
