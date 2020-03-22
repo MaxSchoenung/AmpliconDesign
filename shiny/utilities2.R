@@ -475,185 +475,111 @@ generate_amplicons_coord <- function(x,g,extend=0,bs_convert=TRUE){
 
 cutTable <- function(d,handles_f,handles_r,in.genome){
 
-  a <- read.table(output,stringsAsFactors = F)
-  ind <- which(a[,1]=="=")
-  int <- findInterval(1:nrow(a),ind)        
-  listed <- split(a,int)
-  
-  ## shape the elements
-  listed <- listed[-length(listed)] #last row is just a comma
-  listed[[1]] <- listed[[1]][-c(1:9),]
-  listed[2:length(listed)] <- lapply(listed[2:length(listed)],function(x)x[-1,])
-  
-  startt <- Sys.time()
-  listed.results <- parallel::mclapply(listed,shape_fun)
-  null.list <- lapply(listed.results,is.null)
-  null.list <- do.call(c,null.list)
-  listed.results2 <- listed.results[which(!null.list)]
-  for(i in 1:length(listed.results2)){
-    listed.results2[[i]] <- cbind("AmpliconID"=rep(c(as.numeric(names(listed.results2))+1)[i],nrow(listed.results2[[i]])),listed.results2[[i]])
-  }
-  df <- do.call(rbind,listed.results2)
-  colnames(df) <- c("Amplicon","Primer ID","Strand","Primer sequences left","Primer sequences right","Primer left begin","Primer left length","Primer right end","Primer right length","GC percent left","GC percent right","Melting temp left","Melting temp right","Amplicon size","Region","UCSC Primer Left","UCSC Primer Right","Amplicon","#CpGs")
-  head(df)
-  endt <- Sys.time()
-  message(paste0("Execution time: ",endt-startt))
-  
-  if(!is.null(d)){
-  df[,4] <- paste0(tolower(handles_f),df[,4])
-  df[,5] <- paste0(tolower(handles_r),df[,5])
-  }
-  rownames(df) <- 1:nrow(df)
+  output.primer <- read.table(output)
+  ret <- matrix(nrow=10,ncol =17)
 
-  return(df)
+  #divide file at each new amplicon
+  output_split <- stringr::str_split(toString(output.primer$V1),c("PRIMER_SEQUENCE_ID[_]?[0-9]?[0-9]?[0-9]?[0-9]?"))
+  text <- output_split[[1]]
+  #for each amplicon produce a matrix that contains the primer info and add the matrices together
+  for(i in 2:length(text)){
+    tmp <- ret
+    ret <- produceOutput(strsplit(text[i],"[,=]")[[1]],i-1,in.genome = in.genome)
+    if(!is.na(tmp[1][1])){
+      ret <- rbind(tmp,ret)
+    }
+  }
+  if(!is.null(d)){
+    ret[,4] <- paste0(tolower(handles_f),ret[,4])
+    ret[,5] <- paste0(tolower(handles_r),ret[,5])
+  }
+
+  return(ret)
   message(paste0(Sys.time()," CutTable Done!"))
 }
 
-# 
-# produceOutput <- function(output_split,numberOfAmplicon,in.genome){
-# 
-#   #save primer id from output
-#   id <- toString(output_split[2])
-#   ucsc <- toString(output_split[4])
-#   ucsc_ranges <- GenomicRanges::GRanges(ucsc)
-# 
-#   #cut string at every new primer location
-#   
-#   cut <- grep("^ PRIMER_LEFT*.*.SEQUENCE$",output_split)
-#   cut <- append(cut,length(output_split))
-#   if(length(cut) > 0){
-# 
-#     x <- 1
-#     mat <- matrix(dimnames = list(c(),c("Amplicon","Primer ID","Strand","Primer sequences left","Primer sequences right","Primer left begin","Primer left length","Primer right end","Primer right length","GC percent left","GC percent right","Melting temp left","Melting temp right","Amplicon size","Region","UCSC Primer Left","UCSC Primer Right","Amplicon","#CpGs")),nrow = length(cut)-1,ncol = 19)
-#     count <- 1
-#     for(i in cut){
-#       if( x != 1){
-#         splitted <- output_split[x:i-1]
-#         #save which amplicon is currently worked on (1st,2nd,...)
-#         mat[,1] <- numberOfAmplicon
-#         #save the ID of the amplicon also
-#         mat[,2] <- id
-#         #strand
-#         mat[,3] <- if(stringr::str_detect(id,"Minus")==TRUE){"-"}else{"+"}
-#         #save the primer sequences
-#         mat[count,4] <- toString(splitted[grep("PRIMER_LEFT_[0-9]?[0-9]?[0-9]?[0-9]?[_]?SEQUENCE",splitted,ignore.case = T)+1])
-#         mat[count,5] <- toString(splitted[grep("PRIMER_RIGHT_[0-9]?[0-9]?[0-9]?[0-9]?[_]?SEQUENCE",splitted,ignore.case = T)+1])
-#         #save the start and end positions of the primers
-#         mat[count,6] <- toString(splitted[grep("PRIMER_LEFT[_]?[0-9]?[0-9]?[0-9]?[0-9]?",splitted,ignore.case = T)+1][2])
-#         mat[count,7] <- toString(splitted[grep("PRIMER_LEFT[_]?[0-9]?[0-9]?[0-9]?[0-9]?",splitted,ignore.case = T)+2][2])
-# 
-#         mat[count,8] <- toString(splitted[grep("PRIMER_RIGHT[_]?[0-9]?[0-9]?[0-9]?[0-9]?",splitted,ignore.case = T)+1][2])
-#         mat[count,9] <- toString(splitted[grep("PRIMER_RIGHT[_]?[0-9]?[0-9]?[0-9]?[0-9]?",splitted,ignore.case = T)+2][2])
-#         if(length(grep("Minus",id))!=0){
-#           rev.start <- as.numeric(mat[count,6])
-#           rev.length <- as.numeric(mat[count,7])
-#           fwd.start <- as.numeric(mat[count,8])
-#           fwd.length <- as.numeric(mat[count,9])
-#           mat[count,6] <- as.numeric(ucsc_ranges@ranges@width)-rev.start-rev.length
-#           mat[count,8] <- as.numeric(ucsc_ranges@ranges@width)-fwd.start+fwd.length-2
-#         }
-#         #save the GC percent of the primers
-#         mat[count,10] <- toString(splitted[grep("PRIMER_LEFT_[0-9]?[0-9]?[0-9]?[0-9]?[_]?GC",splitted,ignore.case = T)+1])
-#         mat[count,11] <- toString(splitted[grep("PRIMER_RIGHT_[0-9]?[0-9]?[0-9]?[0-9]?[_]?GC",splitted,ignore.case = T)+1])
-#         #save the predicted melting temperature
-#         mat[count,12] <- toString(splitted[grep("LEFT_[0-9]?[0-9]?[0-9]?[0-9]?[_]?TM",splitted,ignore.case = T)+1])
-#         mat[count,13] <- toString(splitted[grep("RIGHT_[0-9]?[0-9]?[0-9]?[0-9]?[_]?TM",splitted,ignore.case = T)+1])
-#         #save the size of the amplicons
-#         mat[count,14] <- toString(splitted[grep("PRIMER_PRODUCT_SIZE[_]?[0-9]?[0-9]?[0-9]?[0-9]?",splitted,ignore.case = T)+1])
-#         #format to UCSC style
-#         mat[count,15] <- ucsc
-#         mat[count,16] <- paste0(as.character(ucsc_ranges@seqnames@values),":",ucsc_ranges@ranges@start+as.numeric(mat[count,6]),"-",ucsc_ranges@ranges@start+as.numeric(mat[count,6])-1+as.numeric(mat[count,7]))
-#         mat[count,17] <- paste0(as.character(ucsc_ranges@seqnames@values),":",ucsc_ranges@ranges@start+as.numeric(mat[count,8])+1-as.numeric(mat[count,9]),"-",ucsc_ranges@ranges@start+as.numeric(mat[count,8]))
-#         # if(length(grep("Minus",id))!=0){
-#         #   mat[count,15] <- paste0(as.character(ucsc_ranges@seqnames@values),":",ucsc_ranges@ranges@start,"-",ucsc_ranges@ranges@start+ucsc_ranges@ranges@width)
-#         #   end <- ucsc_ranges@ranges@start+ucsc_ranges@ranges@width
-#         #   mat[count,16] <- paste0(as.character(ucsc_ranges@seqnames@values),":",end-as.numeric(mat[count,6])-as.numeric(mat[count,7])-1,"-",end-as.numeric(mat[count,6])-1)
-#         #   mat[count,17] <- paste0(as.character(ucsc_ranges@seqnames@values),":",end-2-as.numeric(mat[count,8]),"-",end-as.numeric(mat[count,8])+as.numeric(mat[count,9])-2)
-#         # }
-#         mat[count,18] <- paste0(stringr::str_split_fixed(mat[count,16],"-",2)[1],"-",stringr::str_split_fixed(mat[count,17],"-",2)[2])
-#         #count number of CpG in Amplicon -> this function might be a bit slow
-#         ranges_cg <- mat[count,18]
-#         chr_loc <- stringr::str_split_fixed(ranges_cg,":",2)
-#         chr_loc <- stringr::str_split_fixed(chr_loc,"-",2)
-#         if(length(grep("Minus",id))!=0){
-#           mat[count,19] <- stringr::str_count(as.character(discoverSequence(chr_loc[1,1],
-#                                                                             as.numeric(chr_loc[2,2]),
-#                                                                             as.numeric(chr_loc[2,1]),"hg19"))
-#                                               ,"CG")}else{
-#                                                 mat[count,19] <- stringr::str_count(as.character(discoverSequence(chr_loc[1,1],
-#                                                                                                                   as.numeric(chr_loc[2,1]),
-#                                                                                                                   as.numeric(chr_loc[2,2]),in.genome)),"CG")}
-#         count <- count+1
-# 
-#       }
-#       x <- i
-#     }
-#   }
-# 
-#   return(mat)
-# }
 
-#library(parallel)
-shape_fun <- function(x){
-  id <- x[grep("ID",x)]
-  strand <- if(stringr::str_detect(id,"Minus")==TRUE){"-"}else{"+"}
-  id <- stringr::str_split_fixed(id,"=",2)[,2]
-  range <- GenomicRanges::GRanges(stringr::str_split_fixed(x[grep("COMMENT",x)],"=",2)[,2])
+produceOutput <- function(output_split,numberOfAmplicon,in.genome){
+
+  #save primer id from output
+  id <- toString(output_split[2])
+  ucsc <- toString(output_split[4])
+  ucsc_ranges <- GenomicRanges::GRanges(ucsc)
+
+  #cut string at every new primer location
   
-  left.splitted <- stringr::str_split_fixed(x[grep("LEFT",x)],"=",2)
-  # IMPORTANT: Emergency break if no primers were designed
-  if(nrow(left.splitted)==0){
-    NULL
-  }else{
-    
-    left <- left.splitted[,2]
-    left.id <- left.splitted[,1]
-    right.splitted <- stringr::str_split_fixed(x[grep("RIGHT",x)],"=",2)
-    right <- right.splitted[,2]
-    right.id <- right.splitted[,1]
-    
-    primer_left_seq <- left[grep("SEQUENCE",left.id)]
-    primer_right_seq <- right[grep("SEQUENCE",right.id)]
-    primer_left_num <- left[grep("SEQUENCE",left.id)+1]
-    prim_left_NumSplit <- stringr::str_split_fixed(primer_left_num,",",2)
-    primer_right_num <- right[grep("SEQUENCE",right.id)+1]
-    prim_right_NumSplit <- stringr::str_split_fixed(primer_right_num,",",2)
-    prim_right_len <- as.numeric(prim_right_NumSplit[,2])
-    prim_left_len <- as.numeric( prim_left_NumSplit[,2])
-    if(strand=="+"){
-      prim_right_end <- as.numeric(prim_right_NumSplit[,1])
-      prim_left_start <- as.numeric(prim_left_NumSplit[,1])
-    }else if(strand=="-"){
-      prim_right_end <- as.numeric(range@ranges@width)-as.numeric(prim_right_NumSplit[,1])+as.numeric(prim_right_NumSplit[,2])-2
-      prim_left_start <- as.numeric(range@ranges@width)-as.numeric(prim_left_NumSplit[,1])-as.numeric(prim_left_NumSplit[,2])
+  cut <- grep("^ PRIMER_LEFT*.*.SEQUENCE$",output_split)
+  cut <- append(cut,length(output_split))
+  if(length(cut) > 0){
+
+    x <- 1
+    mat <- matrix(dimnames = list(c(),c("Amplicon","Primer ID","Strand","Primer sequences left","Primer sequences right","Primer left begin","Primer left length","Primer right end","Primer right length","GC percent left","GC percent right","Melting temp left","Melting temp right","Amplicon size","Region","UCSC Primer Left","UCSC Primer Right","Amplicon","#CpGs")),nrow = length(cut)-1,ncol = 19)
+    count <- 1
+    for(i in cut){
+      if( x != 1){
+        splitted <- output_split[x:i-1]
+        #save which amplicon is currently worked on (1st,2nd,...)
+        mat[,1] <- numberOfAmplicon
+        #save the ID of the amplicon also
+        mat[,2] <- id
+        #strand
+        mat[,3] <- if(stringr::str_detect(id,"Minus")==TRUE){"-"}else{"+"}
+        #save the primer sequences
+        mat[count,4] <- toString(splitted[grep("PRIMER_LEFT_[0-9]?[0-9]?[0-9]?[0-9]?[_]?SEQUENCE",splitted,ignore.case = T)+1])
+        mat[count,5] <- toString(splitted[grep("PRIMER_RIGHT_[0-9]?[0-9]?[0-9]?[0-9]?[_]?SEQUENCE",splitted,ignore.case = T)+1])
+        #save the start and end positions of the primers
+        mat[count,6] <- toString(splitted[grep("PRIMER_LEFT[_]?[0-9]?[0-9]?[0-9]?[0-9]?",splitted,ignore.case = T)+1][2])
+        mat[count,7] <- toString(splitted[grep("PRIMER_LEFT[_]?[0-9]?[0-9]?[0-9]?[0-9]?",splitted,ignore.case = T)+2][2])
+
+        mat[count,8] <- toString(splitted[grep("PRIMER_RIGHT[_]?[0-9]?[0-9]?[0-9]?[0-9]?",splitted,ignore.case = T)+1][2])
+        mat[count,9] <- toString(splitted[grep("PRIMER_RIGHT[_]?[0-9]?[0-9]?[0-9]?[0-9]?",splitted,ignore.case = T)+2][2])
+        if(length(grep("Minus",id))!=0){
+          rev.start <- as.numeric(mat[count,6])
+          rev.length <- as.numeric(mat[count,7])
+          fwd.start <- as.numeric(mat[count,8])
+          fwd.length <- as.numeric(mat[count,9])
+          mat[count,6] <- as.numeric(ucsc_ranges@ranges@width)-rev.start-rev.length
+          mat[count,8] <- as.numeric(ucsc_ranges@ranges@width)-fwd.start+fwd.length-2
+        }
+        #save the GC percent of the primers
+        mat[count,10] <- toString(splitted[grep("PRIMER_LEFT_[0-9]?[0-9]?[0-9]?[0-9]?[_]?GC",splitted,ignore.case = T)+1])
+        mat[count,11] <- toString(splitted[grep("PRIMER_RIGHT_[0-9]?[0-9]?[0-9]?[0-9]?[_]?GC",splitted,ignore.case = T)+1])
+        #save the predicted melting temperature
+        mat[count,12] <- toString(splitted[grep("LEFT_[0-9]?[0-9]?[0-9]?[0-9]?[_]?TM",splitted,ignore.case = T)+1])
+        mat[count,13] <- toString(splitted[grep("RIGHT_[0-9]?[0-9]?[0-9]?[0-9]?[_]?TM",splitted,ignore.case = T)+1])
+        #save the size of the amplicons
+        mat[count,14] <- toString(splitted[grep("PRIMER_PRODUCT_SIZE[_]?[0-9]?[0-9]?[0-9]?[0-9]?",splitted,ignore.case = T)+1])
+        #format to UCSC style
+        mat[count,15] <- ucsc
+        mat[count,16] <- paste0(as.character(ucsc_ranges@seqnames@values),":",ucsc_ranges@ranges@start+as.numeric(mat[count,6]),"-",ucsc_ranges@ranges@start+as.numeric(mat[count,6])-1+as.numeric(mat[count,7]))
+        mat[count,17] <- paste0(as.character(ucsc_ranges@seqnames@values),":",ucsc_ranges@ranges@start+as.numeric(mat[count,8])+1-as.numeric(mat[count,9]),"-",ucsc_ranges@ranges@start+as.numeric(mat[count,8]))
+        # if(length(grep("Minus",id))!=0){
+        #   mat[count,15] <- paste0(as.character(ucsc_ranges@seqnames@values),":",ucsc_ranges@ranges@start,"-",ucsc_ranges@ranges@start+ucsc_ranges@ranges@width)
+        #   end <- ucsc_ranges@ranges@start+ucsc_ranges@ranges@width
+        #   mat[count,16] <- paste0(as.character(ucsc_ranges@seqnames@values),":",end-as.numeric(mat[count,6])-as.numeric(mat[count,7])-1,"-",end-as.numeric(mat[count,6])-1)
+        #   mat[count,17] <- paste0(as.character(ucsc_ranges@seqnames@values),":",end-2-as.numeric(mat[count,8]),"-",end-as.numeric(mat[count,8])+as.numeric(mat[count,9])-2)
+        # }
+        mat[count,18] <- paste0(stringr::str_split_fixed(mat[count,16],"-",2)[1],"-",stringr::str_split_fixed(mat[count,17],"-",2)[2])
+        #count number of CpG in Amplicon -> this function might be a bit slow
+        ranges_cg <- mat[count,18]
+        chr_loc <- stringr::str_split_fixed(ranges_cg,":",2)
+        chr_loc <- stringr::str_split_fixed(chr_loc,"-",2)
+        if(length(grep("Minus",id))!=0){
+          mat[count,19] <- stringr::str_count(as.character(discoverSequence(chr_loc[1,1],
+                                                                            as.numeric(chr_loc[2,2]),
+                                                                            as.numeric(chr_loc[2,1]),"hg19"))
+                                              ,"CG")}else{
+                                                mat[count,19] <- stringr::str_count(as.character(discoverSequence(chr_loc[1,1],
+                                                                                                                  as.numeric(chr_loc[2,1]),
+                                                                                                                  as.numeric(chr_loc[2,2]),in.genome)),"CG")}
+        count <- count+1
+
+      }
+      x <- i
     }
-    primer_right_gc <- as.numeric(right[grep("GC",right.id)])
-    primer_left_gc <- as.numeric(left[grep("GC",left.id)])
-    primer_right_tm <- as.numeric(right[grep("TM",right.id)])
-    primer_left_tm <- as.numeric(left[grep("TM",left.id)])
-    size <- stringr::str_split_fixed(x[grep("SIZE",x)],"=",2)[,2]
-    
-    prim_left <- GenomicRanges::GRanges(paste0(range@seqnames,":",c(IRanges::start(range)+prim_left_start),"-",c(IRanges::start(range)+prim_left_start+as.numeric(prim_left_len))))
-    prim_right <- GenomicRanges::GRanges(paste0(range@seqnames,":",c(IRanges::start(range)+prim_right_end-as.numeric(prim_right_len)),"-",c(IRanges::start(range)+prim_right_end)))
-    if(strand=="+"){
-      amplicon <- GenomicRanges::GRanges(paste0(range@seqnames,":",IRanges::start(prim_left),"-",IRanges::end(prim_right)))
-    }else{
-      amplicon <- GenomicRanges::GRanges(paste0(range@seqnames,":",IRanges::start(prim_right),"-",IRanges::end(prim_left)))
-    }
-    
-    
-    seqstring <- stringr::str_split_fixed(x[grep("SEQUENCE",x)[2]],"=",2)[,2]
-    strings <- stringr::str_sub(seqstring,prim_left_NumSplit[,1],prim_right_NumSplit[,1])
-    cgs <- stringr::str_count(strings,"tG")
-    
-    
-    mat <- data.frame("Primer ID"=rep(id,length(primer_left_seq)),"Strand"=rep(strand,length(primer_left_seq)),
-                      "Primer sequences left"=primer_left_seq,"Primer sequences right"=primer_right_seq,
-                      "Primer left begin"=prim_left_start,"Primer left length"=prim_left_len,"Primer right end"=prim_right_end,
-                      "Primer right length"=prim_right_len,"GC percent left"=primer_left_gc,"GC percent right"=primer_right_gc,
-                      "Melting temp left"=primer_left_tm,"Melting temp right"=primer_right_tm,"Amplicon size"=size,
-                      "Region"=as.character(range),"UCSC Primer Left"=as.character(prim_left),"UCSC Primer Right"=as.character(prim_right),"Amplicon"=as.character(amplicon),"#CpGs"=cgs)
   }
+
+  return(mat)
 }
 
 # Create a second strand --------------------------------------------------

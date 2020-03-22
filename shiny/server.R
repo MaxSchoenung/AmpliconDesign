@@ -901,7 +901,6 @@ server <- function(input,output,session){
 
       # print table that contains all possible primers
       primer.table <<- cutTable(input$uiHandles,adapter_fwd(),adapter_rev(),input$selectGenomeBisulfit)
-      message(paste0(Sys.time(),": Cut Table Done!"))
 
 
 # Design primer based on genomic coordinates ------------------------------
@@ -987,6 +986,7 @@ server <- function(input,output,session){
                adapter_fwd(),adapter_rev(),input$selectGenomeBisulfit)
       primer.table <<- cutTable(input$uiHandles,#input$uiAdaptF,
                                 adapter_fwd(),adapter_rev(),input$selectGenomeBisulfit)
+      #message(tmp())
 
 
 # Input as FASTA ----------------------------------------------------------
