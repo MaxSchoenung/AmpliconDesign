@@ -827,8 +827,14 @@ server <- function(input,output,session){
       # isolate single cpg ids
       req(input$cgID)
       comma <- stringr::str_split(input$cgID,"/")[[1]]
-      print(comma)
-      print(input$selectGenomeBisulfit)
+      message("check1")
+      
+      if(length(comma)>250){
+        comma <- comma[1:250]
+        showNotification(paste("Due to computational ressources just the first 250 Sequences will be analyzed."), duration = 0,type="warning")
+      }
+      message("check2")
+
       
       ## generate a warning message
       if(length(grep(pattern = "cg",comma))!=length(comma)){
@@ -837,6 +843,7 @@ server <- function(input,output,session){
       }else{
         output$clicked_bs <- renderText("yes")
       }
+      message("check3")
 
       #advanced extenstion method
       if(!is.null(input$regionExtend)){
@@ -857,18 +864,19 @@ server <- function(input,output,session){
        input_cgid <- cpg_coordinates(comma,epic=T)
       }else{
        input_cgid <- cpg_coordinates(comma)
-       }
+      }
+      message(paste0(Sys.time(),": CpG Coordinates extracted"))
       my_amplicons <- generate_amplicons_coord(input_cgid,input$selectGenomeBisulfit,extend=ext,bs_convert = T)
-      print(input$uiHandles)
+      message(paste0(Sys.time(),": FASTA Sequences extracted"))
 
       #advanced option implementation
       if(!is.null(input$incTarget)){
         if(input$incTarget==T)
           {cg_target <- paste0(targ.pos_input())}else{
-            cg_target <- paste0(nchar(my_amplicons[[1]][1])/2)
+            cg_target <- paste0(nchar(my_amplicons[[1]][1])%/%2)
         }
       }else{
-        cg_target <- paste0(nchar(my_amplicons[[1]][1])/2)
+        cg_target <- paste0(nchar(my_amplicons[[1]][1])%/%2)
       }
 
 
@@ -876,7 +884,7 @@ server <- function(input,output,session){
       print(extend_input)
       print(ext)
       print(input$incTarget)
-      print(cg_target)
+      
       primer_IDs <- primer_design(my_amplicons,names(my_amplicons),
                                   CGtarget = cg_target,
                                   primer_size = input$uiPrimS,
@@ -889,10 +897,11 @@ server <- function(input,output,session){
                                   amp_max = input$uiAmpMax,
                                   exclude_cpg = input$uiExcludeCG,
                                   primerNumber = input$nPrimer)
+      message(paste0(Sys.time(),": Primer Desinged"))
 
       # print table that contains all possible primers
-      cutTable(input$uiHandles,adapter_fwd(),adapter_rev(),input$selectGenomeBisulfit)
       primer.table <<- cutTable(input$uiHandles,adapter_fwd(),adapter_rev(),input$selectGenomeBisulfit)
+      message(paste0(Sys.time(),": Cut Table Done!"))
 
 
 # Design primer based on genomic coordinates ------------------------------
@@ -912,6 +921,11 @@ server <- function(input,output,session){
       #single cpg coordinates
       coord.vec <- GenomicRanges::GRanges(stringr::str_split(input$genomicCoord,"/")[[1]])
       coord.vec_amp <- as.data.frame(stringr::str_split(input$genomicCoord,"/")[[1]])
+      
+      if(nrow(coord.vec_amp)>250){
+        coord.vec_amp <- coord.vec_amp[1:250,]
+        showNotification(paste("Due to computational ressources just the first 250 Sequences will be analyzed."), duration = 0,type="warning")
+      }
 
       #advanced extenstion method
       if(!is.null(input$regionExtend)){
@@ -929,12 +943,16 @@ server <- function(input,output,session){
 
       #advanced option implementation
       if(!is.null(input$incTarget)){
-        if(input$incTarget==T)
+        if(input$incTarget==T&nrow(coord.vec_amp)==1)
         {
           advanced <- T
           in_region <- GenomicRanges::GRanges(targ.coord_input())
           if(GenomicRanges::findOverlaps(coord.vec,in_region)@to>0){
             cg_target <- in_region@ranges@start-coord.vec@ranges@start
+          }else if(input$incTarget==T&nrow(coord.vec_amp)!=1){
+            showNotification(paste("Target region specification is just allowed for single sequences! This option has been disabled as you entered multiple sequences."), duration = 0,type="error")
+            advanced <- F
+            cg_target <- 0
           }else{
             advanced <- F
             cg_target <- 0
@@ -979,6 +997,12 @@ server <- function(input,output,session){
       inFile <- input$fastaFile
       inFile <- inFile$datapath
       amplicons <- seqinr::read.fasta(inFile,as.string = T,set.attributes = F)
+      
+      if(length(amplicons)>250){
+        showNotification(paste("Due to computational ressources just the first 250 Sequences will be analyzed."), duration = 0,type="warning")
+        amplicons <- amplicons[1:250]
+      }
+      
       names_amp <- names(amplicons)
       
       ####### warning messages for fasta names
@@ -1279,10 +1303,10 @@ output$settings <- renderTable(
   #                     selected = "inputRegion_tabset")
   # })
 
-  observeEvent(input$submit_bsalign, {
-    updateTabsetPanel(session, "bisbsalign",
-                      selected = "bsalign_query")
-  })
+  # observeEvent(input$submit_bsalign, {
+  #   updateTabsetPanel(session, "bisbsalign",
+  #                     selected = "bsalign_query")
+  # })
 
   # observeEvent(input$submit_analysis, {
   #   updateTabsetPanel(session, "analysispanel",
@@ -1662,8 +1686,27 @@ observeEvent(input$AMP_sampleData,{
       })
     
 
+    # Warning BisAlign --------------------------------------------------------
+    
+    output$clicked_align <- renderText("no")
+    outputOptions(output, "clicked_align", suspendWhenHidden=FALSE)
+    
+    observeEvent(input$submit_bsalign,{
+      output$clicked_align <- renderText("yes")
+      if(!checkLetters(input$bsalign_in)){
+        showNotification(paste("No valid primer sequence entered. Primers can just contain ACGT."), duration = 0,type="error")
+        output$clicked_align <- renderText("no")
+      }else if(input$bsalign_in==""){
+        showNotification(paste("Please enter a primer sequence first."), duration = 0,type="error")
+        output$clicked_align <- renderText("no") 
+      }else{
+          updateTabsetPanel(session, "bisbsalign",
+                            selected = "bsalign_query")
+      }
+    })
     
 
 }
+
 
 

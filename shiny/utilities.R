@@ -257,7 +257,8 @@ mass_output <- function(input_ranges,genome){
   }else{
     select_ranges <- input_ranges
   }
-  chr <- as.numeric(stringr::str_remove_all(GenomicRanges::GRanges(select_ranges)@seqnames,"chr"))
+  #chr <- as.numeric(stringr::str_remove_all(GenomicRanges::GRanges(select_ranges)@seqnames,"chr"))
+  chr <- as.character(GenomicRanges::GRanges(select_ranges)@seqnames)
   start <- GenomicRanges::GRanges(select_ranges)@ranges@start
   end <- GenomicRanges::GRanges(select_ranges)@ranges@start+GenomicRanges::GRanges(select_ranges)@ranges@width-1
   # extract the sequence
@@ -329,6 +330,8 @@ primer_design <- function(fastas,
                           amp_min=150,amp_max=300,
                           exclude_cpg=T,primerNumber=10,
                           advSet=T){
+  
+  
 
 
   #assess the CGs for later exclusion
@@ -372,7 +375,7 @@ primer_design <- function(fastas,
 
   #create an output directory
   output <<- tempfile("out")
-
+  message(output)
   #run Primer3 bash code
   if(Sys.info()["sysname"]=="Linux"){
     primer3 <- paste0(getwd(),"/software/primer3_linux/primer3_core")
@@ -390,10 +393,19 @@ primer_design <- function(fastas,
 
 
 cpg_coordinates <- function(x,epic=F){
+  start_time_q <- Sys.time()
+  my_db = DBI::dbConnect(RPostgreSQL::PostgreSQL(), user="postgres", password="postgres",
+                         host="c010-shiny2", port=5432, dbname="testdb")
   if(epic==T){
-  return(data.frame(ampliconDesignData::hm850k[x]))
+    result <- dplyr::tbl(my_db,dplyr::sql(paste0("SELECT * FROM hm850k WHERE id IN ('",stringr::str_flatten(x,collapse = "','"),"')")))
   }else{
-  return(data.frame(ampliconDesignData::hm450k[x]))}
+    result <- dplyr::tbl(my_db,dplyr::sql(paste0("SELECT * FROM hm450k WHERE id IN ('",stringr::str_flatten(x,collapse = "','"),"')")))
+  }
+  end_time_q <- Sys.time()
+  message(paste0("Time for the Postgres DB Query (Coordinate Extraction):",c(end_time_q - start_time_q)))
+  result <- as.data.frame(result)
+  vec <- paste0(result[,1],":",result[,2],"-",result[,3])
+  return(as.data.frame(vec))
 }
 
 
@@ -456,6 +468,7 @@ generate_amplicons_coord <- function(x,g,extend=0,bs_convert=TRUE){
 
   #return the amplicons
   return(amp)
+  message(paste0(Sys.time()," Amplicons have been extracted from reference genome"))
 }
 
 
@@ -482,6 +495,7 @@ cutTable <- function(d,handles_f,handles_r,in.genome){
   }
 
   return(ret)
+  message(paste0(Sys.time()," CutTable Done!"))
 }
 
 
