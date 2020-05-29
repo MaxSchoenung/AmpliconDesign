@@ -15,7 +15,13 @@ ui <- navbarPage(strong("AmpliconDesign"),id="page",
                  tabPanel("Home",
                           mainPanel(
                             h1(strong("AmpliconDesign"),align="center"),
-                            column(8,includeMarkdown("home.Rmd"),offset=2,align="center")
+                            column(8,includeMarkdown("home.Rmd"),offset=2,align="center",
+                                   br(),
+                                   br(),
+                                   HTML("AmpliconDesign Visitor Counter:"),
+                                   br(),
+                                   HTML("<script type='text/javascript' src='//counter.websiteout.net/js/7/8/0/0'></script>"),
+                                   br(),br())
                           ,width = 11)),
 
                  tabPanel("MassArray",
@@ -511,7 +517,7 @@ tabPanel("Analysis Pipeline",
       tabPanel("Help",
                sidebarLayout(
                  sidebarPanel(#style = "position:fixed;width:inherit;",
-                   selectInput("help_input","Method",choices=c("MassArray"="a","AmpBS-Seq"="b")),width=2),
+                   selectInput("help_input","Method",choices=c("MassArray"="a","AmpBS-Seq"="b","BisAlign"="c","Analysis Pipeline"="d")),width=2),
                mainPanel(
 
 # Help for MassArray ------------------------------------------------------
@@ -526,7 +532,15 @@ tabPanel("Analysis Pipeline",
                                       includeMarkdown("AMP_intro.Rmd"),
                                       useShinyjs(),
                                       actionButton("interactive_AMP","Interactive Sample Data"))
-                               )
+                               ),
+              conditionalPanel(condition = ("input.help_input=='c'"),
+                               column(12,h1(strong("BisAlign Tutorial"),align="center"),
+                                      includeMarkdown("BisAlign_intro.Rmd"))
+              ),
+              conditionalPanel(condition = ("input.help_input=='d'"),
+                               column(12,h1(strong("Analysis Pipeline Tutorial"),align="center"),
+                                      includeMarkdown("Pipeline_intro.Rmd"))
+              )
                              )
 
 )),

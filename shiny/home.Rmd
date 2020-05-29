@@ -36,7 +36,7 @@ Division of Cancer Epigenomics, German Cancer Research Center Heidelberg (DKFZ)
 
 <br>
 [Translational Cancer Epigenomics](http://www.translational-cancer-epigenomics.de) <br>
-[Computational Epigenomics](https://www.dkfz.de/en/CanEpi/computational_epigenomics.html) <br>
+[Computational Epigenomics](https://www.dkfz.de/en/CanEpi/CompEpigen/) <br>
 [Cancer Epigenomics](https://www.dkfz.de/en/CanEpi/index.php)
 
 <br>
@@ -46,6 +46,7 @@ Contact: <br>
 
 <br>
 <br>
+
 
 [<img src="dkfz_logo.png" alt="DKFZ Logo" width="50%" />](https://www.dkfz.de/en)
 

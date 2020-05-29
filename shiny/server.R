@@ -871,11 +871,18 @@ server <- function(input,output,session){
 
       #advanced option implementation
       if(!is.null(input$incTarget)){
-        if(input$incTarget==T)
-          {cg_target <- paste0(targ.pos_input())}else{
+        if(input$incTarget==T){
+        if(input$incTarget==T&targ.pos_input()<(ext*2)){
+          cg_target <- paste0(targ.pos_input())
+          }else if(input$incTarget==T&targ.pos_input()>=(ext*2)){
+            showNotification(paste("Input cannot be larger than the amplicon length. The middle of the amplicon will be used as a target region."), duration = 0,type="warning")
+            cg_target <- paste0(nchar(my_amplicons[[1]][1])%/%2)
+          }else{
             cg_target <- paste0(nchar(my_amplicons[[1]][1])%/%2)
         }
       }else{
+        cg_target <- paste0(nchar(my_amplicons[[1]][1])%/%2)
+      }}else{
         cg_target <- paste0(nchar(my_amplicons[[1]][1])%/%2)
       }
 
@@ -946,20 +953,22 @@ server <- function(input,output,session){
         {
           advanced <- T
           in_region <- GenomicRanges::GRanges(targ.coord_input())
-          if(GenomicRanges::findOverlaps(coord.vec,in_region)@to>0){
+          if(length(GenomicRanges::findOverlaps(coord.vec,in_region)@to)>0){
             cg_target <- in_region@ranges@start-coord.vec@ranges@start
+          }else{
+            showNotification(paste("Target region did not overlap with entered region. This option was disabled."), duration = 0,type="warning")
+            advanced <- F
+            cg_target <- 0
+            
+          }
           }else if(input$incTarget==T&nrow(coord.vec_amp)!=1){
-            showNotification(paste("Target region specification is just allowed for single sequences! This option has been disabled as you entered multiple sequences."), duration = 0,type="error")
+            showNotification(paste("Target region specification is just allowed for single sequences! This option has been disabled as you entered multiple sequences."), duration = 0,type="warning")
             advanced <- F
             cg_target <- 0
           }else{
             advanced <- F
             cg_target <- 0
-          }
 
-        }else{
-          advanced <- F
-          cg_target <- 0
         }
       }else{
         advanced <- F
@@ -1022,16 +1031,29 @@ server <- function(input,output,session){
       }
       #design primer for that list use names in fasta file for sequence ID
       attr(amplicons,"Amplicons") <- stringr::str_remove_all(names(amplicons),"_Minus")
+      
+      len.ind <- min(sapply(amplicons,nchar))
 
       #advanced option implementation
       if(!is.null(input$incTarget)){
-        if(input$incTarget==T)
+        if(input$incTarget==T){
+        if(input$incTarget==T&targ.pos_input()<len.ind)
         {
           advanced <- T
-          cg_target <- paste0(targ.pos_input())}else{
+          cg_target <- paste0(targ.pos_input())
+          
+          }else if(input$incTarget==T&targ.pos_input()>len.ind)
+          {
+            advanced <- F
+            cg_target <- 0
+            showNotification(paste("Input cannot be larger than the amplicon length. This option will be disabled."), duration = 0,type="warning")
+          }else{
           advanced <- F
           cg_target <- 0
-        }
+          }}else{
+            advanced <- F
+            cg_target <- 0
+          }
       }else{
         advanced <- F
         cg_target <- 0
