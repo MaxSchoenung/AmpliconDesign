@@ -14,6 +14,11 @@ The following input parameters should be specified:
 
 <br>
 
+#### **Mode**
+Users can choose between a single primer alignment (BisAlign) or exploration of potential off-target amplicons resulting from a PCR with the respective forward and reverse primer (ePCR).
+
+<br>
+
 #### **Select Genome**
 Selection of the genome assembly. Users can choose between GRCh38/hg38, GRCh27/hg19 and GRCm38/mm10.
 

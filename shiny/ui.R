@@ -68,9 +68,9 @@ ui <- navbarPage(strong("AmpliconDesign"),id="page",
                   conditionalPanel(condition="input.MassArrayTabset == 'Primer Design' && output.clicked_ma=='yes'",
                                    br(),br(),
                                    h4(strong("Primer Design Parameter")),
-                                   numericInput("MaPrimS", "Optimal Primer Size",value="20"),
-                                   numericInput("MaMinPrimS", "Minimal Primer Size",value="15"),
-                                   numericInput("MaMaxPrimS", "Maximal Primer Size",value="24"),
+                                   numericInput("MaPrimS", "Optimal Primer Size",value="24"),
+                                   numericInput("MaMinPrimS", "Minimal Primer Size",value="20"),
+                                   numericInput("MaMaxPrimS", "Maximal Primer Size",value="28"),
                                    numericInput("MaPrimT", "Optimal Primer melting Temparature",value="55"),
                                    numericInput("MaMinPrimT", "Minimal Primer melting Temparature",value="50"),
                                    numericInput("MaMaxPrimT", "Maximal Primer melting Temparature",value="62"),
@@ -284,16 +284,17 @@ ui <- navbarPage(strong("AmpliconDesign"),id="page",
 
 
                         #Decisions for Primer Design
-                        numericInput("uiPrimS", "Optimal Primer Size",value="20"),
-                        numericInput("uiMinPrimS", "Minimal Primer Size",value="15"),
-                        numericInput("uiMaxPrimS", "Maximal Primer Size",value="24"),
-                        numericInput("uiPrimT", "Optimal Primer melting Temparature",value="55"),
-                        numericInput("uiMinPrimT", "Minimal Primer melting Temparature",value="50"),
-                        numericInput("uiMaxPrimT", "Maximal Primer melting Temparature",value="62"),
+                        numericInput("uiPrimS", "Optimal Primer Size",value="24"),
+                        numericInput("uiMinPrimS", "Minimal Primer Size",value="20"),
+                        numericInput("uiMaxPrimS", "Maximal Primer Size",value="28"),
+                        numericInput("uiPrimT", "Optimal Primer melting Temperature",value="55"),
+                        numericInput("uiMinPrimT", "Minimal Primer melting Temperature",value="50"),
+                        numericInput("uiMaxPrimT", "Maximal Primer melting Temperature",value="62"),
                         numericInput("uiAmpMin", "Minimal Amplicon Size",value="150"),
                         numericInput("uiAmpMax", "Maximal Amplicon Size",value="300"),
                         numericInput("nPrimer","Numer of Primer to design per region","10",min=1,max=999),
                         checkboxInput("uiExcludeCG","Exclude CGs from Primer",value=TRUE,width="100%"),
+                        checkboxInput("uiExcludeSNP","Exclude SNPs from Primer",value=FALSE,width="100%"),
 
                         uiOutput("uiBisulfit"),
 
@@ -344,12 +345,24 @@ tabPanel("BisAlign",
          add_busy_spinner(spin = "fading-circle",position="full-page"),
          sidebarLayout(
            sidebarPanel(
+             selectInput("mode_bsalign","Mode",
+                         c("Single Primer" = "single_align",
+                           "ePCR" = "epcr_align"
+                         ),width ="200px"),
            selectInput("selectGenome_bsalign","Select genome",
                        c("Human GRCh37/hg19" = "hg19",
                          "Human GRCh38/hg38" = "hg38",
                          "Mouse GRCm38/mm10" = "mm10"
                        ),width ="200px"),
-           textInput("bsalign_in","Primer Input"),
+           conditionalPanel(
+             condition = "input.mode_bsalign == 'single_align'",
+             textInput("bsalign_in","Primer Input")
+           ),
+           conditionalPanel(
+             condition = "input.mode_bsalign == 'epcr_align'",
+             textInput("epcr_fwd","Primer Input"),
+             textInput("epcr_rev","Primer Input")
+           ),
            actionButton("submit_bsalign","Submit"),
            width=2
 
@@ -366,7 +379,8 @@ tabPanel("BisAlign",
                  conditionalPanel(condition="input.submit_bsalign==0",
                                   br(),
                                   column(12,align="center",p("BisAlign query results will be displayed here."))),
-                 DT::dataTableOutput("bsalign_table")
+                 DT::dataTableOutput("bsalignTable"),
+                 uiOutput("popupAlign")
                )
 
              )
@@ -555,7 +569,14 @@ tabPanel("Analysis Pipeline",
                       column(12,h1(strong("About AmpliconDesign"),align="center"),
                              includeMarkdown("about.Rmd"))
 
-               ))
+               )),
+
+      tabPanel("Privacy Policy",
+             mainPanel(
+               column(12,h1(strong("AmpliconDesign Privacy Policy"),align="center"),
+                      includeMarkdown("privacy_policy.Rmd"))
+               
+             ))
 
 
 )

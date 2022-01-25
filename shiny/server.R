@@ -903,6 +903,8 @@ server <- function(input,output,session){
                                   amp_min = input$uiAmpMin,
                                   amp_max = input$uiAmpMax,
                                   exclude_cpg = input$uiExcludeCG,
+                                  exclude_snp = input$uiExcludeSNP,
+                                  g=input$selectGenomeBisulfit,
                                   primerNumber = input$nPrimer)
       message(paste0(Sys.time(),": Primer Desinged"))
 
@@ -924,14 +926,14 @@ server <- function(input,output,session){
           output$clicked_bs <- renderText("yes")
         }
       
-      #single cpg coordinates
-      coord.vec <- GenomicRanges::GRanges(stringr::str_split(input$genomicCoord,"/")[[1]])
-      coord.vec_amp <- as.data.frame(stringr::str_split(input$genomicCoord,"/")[[1]])
-      
-      if(nrow(coord.vec_amp)>250){
-        coord.vec_amp <- coord.vec_amp[1:250,]
-        showNotification(paste("Due to computational ressources just the first 250 Sequences will be analyzed."), duration = 0,type="warning")
-      }
+      # #single cpg coordinates
+      # coord.vec <- GenomicRanges::GRanges(stringr::str_split(input$genomicCoord,"/")[[1]])
+      # coord.vec_amp <- as.data.frame(stringr::str_split(input$genomicCoord,"/")[[1]])
+      # 
+      # if(nrow(coord.vec_amp)>250){
+      #   coord.vec_amp <- coord.vec_amp[1:250,]
+      #   showNotification(paste("Due to computational ressources just the first 250 Sequences will be analyzed."), duration = 0,type="warning")
+      # }
 
       #advanced extenstion method
       if(!is.null(input$regionExtend)){
@@ -943,6 +945,15 @@ server <- function(input,output,session){
       }
       else{
         ext <- 0
+      }
+      
+      #single cpg coordinates
+      coord.vec <- GenomicRanges::GRanges(stringr::str_split(input$genomicCoord,"/")[[1]])+ext
+      coord.vec_amp <- as.data.frame(stringr::str_split(input$genomicCoord,"/")[[1]])
+      
+      if(nrow(coord.vec_amp)>250){
+        coord.vec_amp <- coord.vec_amp[1:250,]
+        showNotification(paste("Due to computational ressources just the first 250 Sequences will be analyzed."), duration = 0,type="warning")
       }
 
       my_amplicons <- generate_amplicons_coord(as.data.frame(coord.vec_amp),input$selectGenomeBisulfit,extend=ext,bs_convert = T)
@@ -986,9 +997,11 @@ server <- function(input,output,session){
                                   amp_min = input$uiAmpMin,
                                   amp_max = input$uiAmpMax,
                                   exclude_cpg = input$uiExcludeCG,
+                                  exclude_snp = input$uiExcludeSNP,
                                   advSet = advanced,
                                   CGtarget = cg_target,
-                                  primerNumber = input$nPrimer)
+                                  primerNumber = input$nPrimer,
+                                  g=input$selectGenomeBisulfit)
 
       # print table that contains all possible primers
       cutTable(input$uiHandles,#input$uiAdaptF,
@@ -1070,6 +1083,8 @@ server <- function(input,output,session){
                                   amp_min = input$uiAmpMin,
                                   amp_max = input$uiAmpMax,
                                   exclude_cpg = input$uiExcludeCG,
+                                  exclude_snp = input$uiExcludeSNP,
+                                  g=input$selectGenomeBisulfit,
                                   advSet = advanced,
                                   primerNumber = input$nPrimer)
 
@@ -1087,10 +1102,19 @@ server <- function(input,output,session){
 
     tmp()
 
-  },selection='single')
+  },selection='single',options=list(scroller = TRUE,
+                                    scrollX = TRUE,autoWidth=T))
 
+  value_showSeq <- reactiveValues(clicked="no")
+  value_showAlign <- reactiveValues(clicked="no")
+  
   observeEvent(input$test_rows_selected, {
     shinyBS::toggleModal(session, "modalPrimer", "open")
+  })
+  
+  observeEvent(input$test_rows_selected, {
+    value_showSeq$clicked <- "no"
+    value_showAlign$clicked <- "no"
   })
 
   plot_chr <- reactive({
@@ -1107,33 +1131,50 @@ server <- function(input,output,session){
   plot_end <- reactive({
       GenomicRanges::GRanges(primer.table[input$test_rows_selected,15])@ranges@start+GenomicRanges::GRanges(primer.table[input$test_rows_selected,15])@ranges@width-1
     })
-
-  fwd_start <- reactive({
-    as.numeric(GenomicRanges::GRanges(primer.table[input$test_rows_selected,16])@ranges@start)-as.numeric(GenomicRanges::GRanges((primer.table[input$test_rows_selected,15]))@ranges@start)
+  
+  selected_region <- reactive({
+    as.character(primer.table[input$test_rows_selected,15])
+  })
+  
+  selected_sequence <- reactive({
+    as.character(primer.table[input$test_rows_selected,18])
+  })
+  
+  selected_df <- eventReactive(input$BS_sequence_output,{
+    primer.table[input$test_rows_selected,]
+  })
+  
+  sub.primer.df <- reactive({
+    primer.table[which(primer.table[,15]==selected_region()),]
   })
 
-  fwd_end <- reactive({
-    GenomicRanges::GRanges(primer.table[input$test_rows_selected,16])@ranges@width
+  fwd_prims <- reactive({
+    as.character(sub.primer.df()[,16])
   })
 
-  rev_start <- reactive({
-    as.numeric(GenomicRanges::GRanges(primer.table[input$test_rows_selected,17])@ranges@start)+as.numeric(GenomicRanges::GRanges(primer.table[input$test_rows_selected,17])@ranges@width)-as.numeric(GenomicRanges::GRanges((primer.table[input$test_rows_selected,15]))@ranges@start)-1
+  rev_prims <- reactive({
+    as.character(sub.primer.df()[,17])
+  })
+  
+  selectedGrouping <- reactive({
+    sub.primer.df()[,18]
   })
 
-  rev_end <- reactive({
-    GenomicRanges::GRanges(primer.table[input$test_rows_selected,17])@ranges@width
+  selectedPrimHighlight <- reactive({
+    var <- rownames(primer.table)[input$test_rows_selected]
+    which(rownames(sub.primer.df())==var)
   })
-
+  
   strand <- reactive({
-    #as.character(primer.table[input$test_rows_selected,3])
-    as.character("+")
+    as.character(primer.table[input$test_rows_selected,3])
+    #as.character("+")
   })
 
   primerF <- reactive({
     if(!is.null(input$uiHandles)){
       stringr::str_remove_all(primer.table[input$test_rows_selected,4],input$uiAdaptF)
     }else{
-      primer.table[input$test_rows_selected,4]
+      as.character(primer.table[input$test_rows_selected,4])
     }
   })
 
@@ -1141,12 +1182,48 @@ server <- function(input,output,session){
     if(!is.null(input$uiHandles)){
       stringr::str_remove_all(primer.table[input$test_rows_selected,5],input$uiAdaptR)
     }else{
-      primer.table[input$test_rows_selected,5]
+      as.character(primer.table[input$test_rows_selected,5])
     }
   })
 
+# Extract the sequence
+  
+  output$show_seq <- reactive({
+    value_showSeq$clicked=="yes"
+  })
+  outputOptions(output, "show_seq", suspendWhenHidden = FALSE)
+  
+  output$show_align <- reactive({
+    value_showAlign$clicked=="yes"
+  })
+  outputOptions(output, "show_align", suspendWhenHidden = FALSE)
+  
+  selected_fwdlength <- reactive({
+    as.numeric(primer.table[input$test_rows_selected,7])
+  })
+  
+  selected_revlength <- reactive({
+    as.numeric(primer.table[input$test_rows_selected,9])
+  })
+  
+  primer_seqOutput <- eventReactive(input$BS_sequence_output,{
+    req(selected_df())
+    HTML(paste0("<pre style='word-wrap: break-word;width:70%;margin-left:5%'><font size='4'>",sequence_query(selected_sequence(),strand(),genome=input$selectGenomeBisulfit,selected_fwdlength(),selected_revlength()),"<font size></pre>"))
+  })
+  
+  
+  output$primer_seqOutputHTML <- renderText({
+    req(primer_seqOutput())
+    primer_seqOutput()
+  })
 
-
+  observeEvent(input$BS_sequence_output, {
+    value_showSeq$clicked <- "yes"
+  })
+  
+  observeEvent(input$BS_bsalign_primer, {
+    value_showAlign$clicked <- "yes"
+  })
 
 # Create the plot ---------------------------------------------------------
 
@@ -1162,39 +1239,60 @@ server <- function(input,output,session){
                                                        timeout = 1000)),
                      conditionalPanel(id='plot',
                                       condition="!($('html').hasClass('shiny-busy'))",
-                       renderPlot(gviz_primer(input$selectGenomeBisulfit,
-                                   plot_chr(),
-                                   plot_start(),
-                                   plot_end(),
-                                   fwd_start(),
-                                   fwd_end(),
-                                   rev_start(),
-                                   rev_end(),
-                                   strand()
-                                   )),
+                       # renderPlot(gviz_primer(input$selectGenomeBisulfit,
+                       #             plot_chr(),
+                       #             plot_start(),
+                       #             plot_end(),
+                       #             fwd_start(),
+                       #             fwd_end(),
+                       #             rev_start(),
+                       #             rev_end(),
+                       #             strand()
+                       #             )),
+                       renderPlot(gviz_batch(input$selectGenomeBisulfit,
+                                              plot_chr(),
+                                              plot_start(),
+                                              plot_end(),
+                                              fwd_prims(),
+                                              rev_prims(),
+                                              strand(),
+                                             selectedGrouping(),
+                                             selectedPrimHighlight()
+                                             
+                       )),
+                       
                        br(),
-                       actionButton("BS_bsalign_primer","BisAlign Primer against BS genome"),
+                       actionButton("BS_bsalign_primer","BisAlign Primer against BS genome"), 
+                       actionButton("BS_sequence_output","Amplicon Sequence"),
                        br(),
                        conditionalPanel(id='bs_primer_bsalign_cond',
-                                        condition = "input.BS_bsalign_primer%2==1",
+                                        #condition = "input.BS_bsalign_primer%2==1",
+                                        condition = "output.show_align",
                                         tabsetPanel(
-                                        tabPanel("Forward",
-                                                 DT::renderDataTable(primer_bs_bsalign(primerF(),path_to_genome=paste0("/var/ressources/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa")))
-                                                 ),
-                                        tabPanel("Reverse",
-                                                 DT::renderDataTable(primer_bs_bsalign(primerR(),path_to_genome=paste0("/var/ressources/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa")))
-                                                 )
+                                          tabPanel("ePCR",
+                                                   DT::renderDataTable(bs_ePCR(primerF(),primerR(),path_to_genome=paste0("/var/ressources/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa")),options=list(scroller = TRUE,
+                                                                                                                                                                                                                 scrollX = TRUE,autoWidth=T))
+                                          )
+                                        )),
+                       conditionalPanel(id='bs_primer_seqOutput_cond',
+                                        #condition = "input.BS_sequence_output%2==1",
+                                        condition = "output.show_seq",
+                                        tabsetPanel(
+                                          tabPanel("Amplicon Sequence",
+                                                   uiOutput("primer_seqOutputHTML",inline =FALSE),
+                                                   HTML("Coloring: &emsp; <b><span style='color:green'>Repeats</span> &emsp; <span style='color:red'>CpG</span> &emsp; <span style='color:violet'>SNP</span> &emsp; <mark>Primer</mark></b>")
+                                          )
                                         ))
-                       )
-                       # h3("Primer bsalign against bisulfite converted reference genome"),
-                       # h5("Forward"),
-                       # DT::renderDataTable(primer_bs_bsalign(primerF(),path_to_genome=paste0("/var/ressources/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa"))),
-                       # #MAC#DT::renderDataTable(primer_bs_bsalign(primerF(),path_to_bowtie="/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/bowtie",path_to_genome=paste0("/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/genomes/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa"))),
-                       # h5("Reverse"),
-                       # DT::renderDataTable(primer_bs_bsalign(primerR(),path_to_genome=paste0("/var/ressources/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa")))
-                       # #MAC#DT::renderDataTable(primer_bs_bsalign(primerR(),path_to_bowtie="/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/bowtie",path_to_genome=paste0("/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/genomes/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa")))
-                       )
-
+                     )
+                     # h3("Primer bsalign against bisulfite converted reference genome"),
+                     # h5("Forward"),
+                     # DT::renderDataTable(primer_bs_bsalign(primerF(),path_to_genome=paste0("/var/ressources/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa"))),
+                     # #MAC#DT::renderDataTable(primer_bs_bsalign(primerF(),path_to_bowtie="/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/bowtie",path_to_genome=paste0("/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/genomes/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa"))),
+                     # h5("Reverse"),
+                     # DT::renderDataTable(primer_bs_bsalign(primerR(),path_to_genome=paste0("/var/ressources/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa")))
+                     # #MAC#DT::renderDataTable(primer_bs_bsalign(primerR(),path_to_bowtie="/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/bowtie",path_to_genome=paste0("/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/genomes/",input$selectGenomeBisulfit,"_bowtie_ct_ga_indexed.fa")))
+    )
+    
   })
 
 
@@ -1349,16 +1447,73 @@ observeEvent(input$AMP_sampleData,{
 # Bisbsalign ----------------------------------------------------------------
 
   bsalign_coord <- eventReactive(input$submit_bsalign,{
-    input$bsalign_in
+    if(input$mode_bsalign=="single_align"){
+      input$bsalign_in
+    }else{
+      c(input$epcr_fwd,input$epcr_rev)
+    }
+  })
+  
+  
+  alignmnet_dt <- eventReactive(input$submit_bsalign,{
+    req(bsalign_coord())
+    if(input$mode_bsalign=="single_align"){
+      primer_bs_bsalign(bsalign_coord(),path_to_genome=paste0("/var/ressources/",input$selectGenome_bsalign,"_bowtie_ct_ga_indexed.fa"))
+    }else{
+      alignment.table<<-bs_ePCR(input$epcr_fwd,input$epcr_rev,path_to_genome=paste0("/var/ressources/",input$selectGenome_bsalign,"_bowtie_ct_ga_indexed.fa"))
+      alignment.table
+    }
+    
   })
 
-  output$bsalign_table <- DT::renderDataTable(
-    primer_bs_bsalign(bsalign_coord(),path_to_genome=paste0("/var/ressources/",input$selectGenome_bsalign,"_bowtie_ct_ga_indexed.fa")))
-    #MAC#primer_bs_bsalign(bsalign_coord(),path_to_bowtie="/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/bowtie",path_to_genome=paste0("/Users/maximilianschoenung/Documents/AG_Lipka/Computational/software/bowtie-1.2.2-macos-x86_64/genomes/",input$selectGenome_bsalign,"_bowtie_ct_ga_indexed.fa")))
+  output$bsalignTable <- DT::renderDataTable({
+    alignmnet_dt()
+  },selection='single')
+  
+  rows_clicked <- eventReactive(input$submit_bsalign,{
+    if(input$mode_bsalign=="single_align"){FALSE}else{TRUE}
+  })
 
-  # observeEvent(input$submit_bsalign, {
-  #   primer_bs_bsalign(input$bsalign_in,path_to_genome=paste0("/var/ressources/",input$selectGenome_bsalign,"_bowtie_ct_ga_indexed.fa"))
+  # observeEvent(input$bsalignTable_rows_selected,{
+  #   req(input$mode_bsalign)
+  #   if(input$mode_bsalign=="ePCR_align"){
+  #   shinyBS::toggleModal(session, "modalAlign", "open")}
   # })
+  
+  observeEvent(input$bsalignTable_rows_selected,{
+    req(rows_clicked())
+    if(rows_clicked()==TRUE){
+    shinyBS::toggleModal(session, "modalAlign", "open")}
+  })
+  
+  bsalignHTML <- reactive({
+    HTML(paste0("<pre style='word-wrap: break-word;width:70%;margin-left:5%'><font size='4'>",epcr_output(alignment.table[input$bsalignTable_rows_selected,],g=input$selectGenome_bsalign),"<font size></pre>"))
+    
+  })
+  output$alignHTML <- renderText({
+    bsalignHTML()
+  })
+  
+  
+  output$popupAlign <- renderUI({
+    shinyBS::bsModal("modalAlign", "Chosen Mismatch", "", size = "large",
+                     conditionalPanel(id='spin',
+                                      condition="($('html').hasClass('shiny-busy'))",
+                                      add_busy_spinner(spin = "fading-circle",position="full-page",
+                                                       timeout = 1000)),
+                     conditionalPanel(id='html_align',
+                                      condition="!($('html').hasClass('shiny-busy'))",
+                                      uiOutput("alignHTML",inline =FALSE),
+                                      HTML("Coloring: &emsp; <b><span style='color:blue'>Mismatch</span> &emsp; <mark>Primer</mark></b>")
+                                      
+                                      
+                     )
+                    
+    )
+    
+  })
+  
+
 
 # Interactive data from help ----------------------------------------------
 
@@ -1684,6 +1839,15 @@ observeEvent(input$AMP_sampleData,{
     
     })
     
+    observeEvent(input$uiExcludeCG,{
+      if(input$uiExcludeCG==F){
+        showNotification("Including CpG sites in the primer sequence can introduce a bias due to more
+                         efficienct primer binding to unmethylated CpGs. This option should only be used by experienced users."
+                         , type = "warning",duration = NULL)
+      }
+    })
+    
+    
 
 # Warning MassArray -------------------------------------------------------
     output$clicked_ma <- renderText("no")
@@ -1714,6 +1878,7 @@ observeEvent(input$AMP_sampleData,{
     outputOptions(output, "clicked_align", suspendWhenHidden=FALSE)
     
     observeEvent(input$submit_bsalign,{
+      if(input$mode_bsalign=="single_align"){
       output$clicked_align <- renderText("yes")
       if(!checkLetters(input$bsalign_in)){
         showNotification(paste("No valid primer sequence entered. Primers can just contain ACGT."), duration = 0,type="error")
@@ -1724,7 +1889,24 @@ observeEvent(input$AMP_sampleData,{
       }else{
           updateTabsetPanel(session, "bisbsalign",
                             selected = "bsalign_query")
-      }
+      }}else{
+        output$clicked_align <- renderText("yes")
+        if(!checkLetters(input$epcr_fwd)){
+          showNotification(paste("No valid primer sequence entered for forward primer. Primers can just contain ACGT."), duration = 0,type="error")
+          output$clicked_align <- renderText("no")
+        }else if(!checkLetters(input$epcr_rev)){
+          showNotification(paste("No valid primer sequence entered for reverse primer. Primers can just contain ACGT."), duration = 0,type="error")
+          output$clicked_align <- renderText("no")
+        }else if(input$epcr_fwd==""){
+          showNotification(paste("Please enter a forward primer sequence first."), duration = 0,type="error")
+          output$clicked_align <- renderText("no") 
+        }else if(input$epcr_rev==""){
+          showNotification(paste("Please enter a reverse primer sequence first."), duration = 0,type="error")
+          output$clicked_align <- renderText("no") 
+        }else{
+          updateTabsetPanel(session, "bisbsalign",
+                            selected = "bsalign_query")
+      }}
     })
     
 

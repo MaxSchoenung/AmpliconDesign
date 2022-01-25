@@ -23,21 +23,32 @@ The alignment of designed primers against a reference genome is an important tas
 
 <br>
 
-#### 1.) Select the required genome build
-AmpliconDesign currently supports three common genome builds: GRCh38/hg38, GRCh27/hg19 and GRCm38/mm10. <br>
-Select the required genome in the drop-down menu. 
+#### 1.) Select the required alignment mode
+Users can choose between a single primer alignment (BisAlign) or exploration of potential off-target amplicons resulting from a PCR with the respective forward and reverse primer (ePCR). <br>
+Select the required mode in the drop-down menu. 
 
 <img src="bisalign1.png" alt="BisAlign Genome" width="800" />
 
 <br>
 <br>
 
+
+#### 2.) Select the required genome build
+AmpliconDesign currently supports three common genome builds: GRCh38/hg38, GRCh27/hg19 and GRCm38/mm10. <br>
+Select the required genome in the drop-down menu. 
+
+<img src="bisalign2.png" alt="BisAlign Genome" width="800" />
+
+<br>
+<br>
+
 #### 2.) Enter the primer sequence
 Please enter the primer sequence which you want to align agains the bisulfite converted reference genome. <br>
+For ePCR mode you need to enter the respective forward and reverse sequence. <br>
 
 *Note:*  You can just enter sequences with standard bases ACGT. For unknwon bases use N. 
 
-<img src="bisalign2.png" alt="BisAlign Primer" width="800" />
+<img src="bisalign3.png" alt="BisAlign Primer" width="800" />
 
 <br>
 <br>
@@ -47,7 +58,10 @@ Please enter the primer sequence which you want to align agains the bisulfite co
 The alignment results are shown as a table sorted based on the "top alignment score". The strand column indicates on which strand a primer alignment was detected. The alignment position is given as chromosome and start of the binding sequence. The primer sequence or the reverse complement which was used for alignment is repeated in the sequence column. The mismatch to the primer sequence at a potential off-target binding sites is shown in the last column.
 <br>
 
-<img src="bisalign3.png" alt="BisAlign Results" width="800" />
+<img src="bisalign4.png" alt="BisAlign Results" width="800" />
 
 <br>
 
+For the ePCR mode an additional sequence query has been implemented. When clicking on the respective row in the results table, a pop-up window appears which includes the sequence of the off-target amplicon together with a coloring index marking the mismatched bases and primer sequence.   
+
+<img src="bisalign5.png" alt="BisAlign Results" width="800" />

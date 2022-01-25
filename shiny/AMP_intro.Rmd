@@ -59,6 +59,9 @@ Choose this option to bisulfite convert FASTA files first. For already bisulfite
 <img src="AMP_3.png" alt="MassArray Genome" width="200" />
 
 <br>
+
+<span style="color:red">Warning:</span> Including CpG sites in the primer sequence might introduce a methylation bias in the data and should only be chosen by expert users with great care.  When including CpG sites in the primer, the CpG location should be at the 5' end of the primer sequence as this minimizes the preferential amplification of an unmethylated allel. 
+
 <br>
 
 
@@ -82,7 +85,12 @@ Choose how many primers to design per inserted genomic region.
 
 <br>
 
-#### 8.) Advanced Setting: 
+#### 7.) Exclude SNPs from the primer sequence
+Common SNPs (hg38: dbSNP 151; hg19: dbSNP 151; mm10: dbSNP 142) can be excluded from the primer sequence to prevent a sample specific amplification bias. 
+
+<br>
+
+#### 9.) Advanced Setting: 
 
 ##### Extend the input genomic region
 
@@ -116,15 +124,23 @@ After submitting the primer design job to the AmpliconDesign web server, users c
 
 #### 10.) Evaluating the Results
 
-AmpliconDesign generates a table with automatically designed primers. This table includes the primer sequence for the plus strand (Amplicon 1) and the minus strand (Amplicon 2) of each amplicon. The primer ID is given as the specified input region. Primer sequences for the forward and reverse primer are predicted (whereby t corresponds to bisulfite converted C). The primer begin is given with respect to the amplicon start site, followed by the GC content of the primer, melting temperatures and the total amplicon size. The *Region* column repeats the input region, and the UCSC coordinates for the forward and reverse primer (left and right) are given, as well as the final amplicon coordinates and the number of CpGs in each amplicon (#CpGs). 
+AmpliconDesign generates a table with automatically designed primers. This table includes the primer sequence for the plus strand (Amplicon 1) and the minus strand (Amplicon 2) of each amplicon. The primer ID is given as the specified input region. Primer sequences for the forward and reverse primer are predicted (whereby t corresponds to bisulfite converted C). The primer begin is given with respect to the amplicon start site, followed by the GC content of the primer, melting temperatures and the total amplicon size. The *Region* column repeats the input region, and the UCSC coordinates for the forward and reverse primer (left and right) are given, as well as the final amplicon coordinates and the number of CpGs in each amplicon (#CpGs). Users can furthermore order the results based on the number of CpG sites in the final amplicon by clicking on the CpG column header in the results table.
 
 <img src="AMP_6.png" alt="MassArray Coordinates" width="600" />
 
 <br>
 
-Users can choose a primer pair by clicking on a row of the table. A pop-up window opens with a genome region plot, indicating primer binding sites, SNP, transcript and CpG locations within the specified region.
+Users can choose a primer pair by clicking on a row of the table. A pop-up window opens with a genome region plot, indicating primer binding sites, SNPs, transcript and CpG locations within the specified region.
 
 <img src="AMP_7.png" alt="MassArray Coordinates" width="600" />
+
+<br>
+
+Furthermore, two *AmpliconDesign* offers two addtional quality control mechanisms for each primer par: Users can inspect the underlying bisulfite converted amplicon sequence together with the SNPs, repeat or CpG locations and run an ePCR search to identify possible off-target amplicons (BisAlign primer against BS genome).
+
+<br>
+
+<img src="AMP_8.png" alt="MassArray Coordinates" width="600" />
 
 <br>
 

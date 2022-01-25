@@ -11,7 +11,7 @@
 
 dbQuery <- function(chr,begin,end,genome,S=T,R=F){
   start_time_q <- Sys.time()
-  my_db = DBI::dbConnect(RPostgreSQL::PostgreSQL(), user="postgres", password="postgres",
+  my_db = DBI::dbConnect(RPostgreSQL::PostgreSQL(), user="postgres", password="ampdesign",
                          host="c010-shiny2", port=5432, dbname="testdb")
   on.exit(DBI::dbDisconnect(my_db))
   if(S==T){
@@ -32,12 +32,12 @@ dbQuery <- function(chr,begin,end,genome,S=T,R=F){
 
 
 
-doColoring <- function(begin,seq,SNPposstart,SNPposwidth,rbegin,rwidth,linebreak,startPrimer, endPrimer){
+doColoring <- function(begin,seq,SNPposstart,SNPposwidth,rbegin,rwidth,linebreak,startPrimer, endPrimer,bs_conv=F,revSeq=F){
   seq <- unlist(strsplit(seq,""))
   str <-""
 
   for(i in 1:length(seq)){
-    if (!is.null(startPrimer) && i == startPrimer){
+    if (!is.null(startPrimer) && i %in% startPrimer){
       str <- paste0(str,"<mark>")
     }
     printedSNP <-FALSE
@@ -56,9 +56,22 @@ doColoring <- function(begin,seq,SNPposstart,SNPposwidth,rbegin,rwidth,linebreak
       two<- FALSE
       if(i<length(seq)){
         one <- (seq[i] =="C" && seq[i+1] == "G")
+        if(bs_conv==T&revSeq==F){
+          one <- (seq[i] =="t" && seq[i+1] == "G")
+        }
+        if(bs_conv==T&revSeq==T){
+          one <- (seq[i] =="C" && seq[i+1] == "a")
+        }
+        
       }
       if(i > 1){
-        two <- seq[i] =="G" && seq[i-1] =="C"
+        two <- (seq[i] =="G" && seq[i-1] =="C")
+        if(bs_conv==T&revSeq==F){
+          two <- (seq[i] =="G" && seq[i-1] == "t")
+        }
+        if(bs_conv==T&revSeq==T){
+          two <- (seq[i] =="a" && seq[i-1] == "C")
+        }
       }
       if(one||two){
         str <-paste0(str,"<font color='red'>",seq[i],"</font>")
@@ -78,7 +91,7 @@ doColoring <- function(begin,seq,SNPposstart,SNPposwidth,rbegin,rwidth,linebreak
         }
       }
     }
-    if(!is.null(endPrimer) && i == endPrimer){
+    if(!is.null(endPrimer) && i %in% endPrimer){
       str <- paste0(str,"</mark>")
     }
     if((i%%linebreak) == 0){
@@ -182,7 +195,7 @@ discoverSequence <-function(chromosome, begin, end, genome){
 #discoverSequence("chr1",1565681,1565881,"hg19")
   genome.bed <<- tempfile("in_bedtools")
   genome_out.bed <<- tempfile("out_bedtools")
-  bed <- matrix(c(chromosome,begin,end),byrow = F,ncol=3)
+  bed <- matrix(c(chromosome,begin-1,end),byrow = F,ncol=3)
   write.table(bed,file=genome.bed,sep="\t",quote=F,row.names = FALSE,col.names = FALSE)
   system(paste0("bedtools getfasta -fi /var/ressources/fasta/",genome,".fa -bed ",genome.bed," -fo ",genome_out.bed))
   #system(paste0("bedtools getfasta -fi /Users/maximilianschoenung/Documents/AG_Lipka/Computational/annotation/hg19/",genome,".fa -bed ",genome.bed," -fo ",genome_out.bed))
@@ -322,14 +335,46 @@ bs_convert <- function(x){
   return(amplicons)
 }
 
+ga_convert <- function(x){
+  amplicons <- lapply(x,function(x)toupper(x))
+  amplicons <- lapply(amplicons,function(x)stringr::str_replace_all(x,"G","a"))
+  return(amplicons)
+}
+
+#snp_query("chr19:43203328-43203689",genome="hg19","chr19:43203328-43203689")
+snp_query <- function(genomeregion,genome,minus.ind){
+  region <- stringr::str_split_fixed(genomeregion,":",2)[1,2]
+  chr <- stringr::str_split_fixed(genomeregion,":",2)[1,1]
+  begin <- as.numeric(stringr::str_split_fixed(region,"-",2)[1,1])
+  end <- as.numeric(stringr::str_split_fixed(region,"-",2)[1,2])
+  start_time_q <- Sys.time()
+  my_db = DBI::dbConnect(RPostgreSQL::PostgreSQL(), user="postgres", password="ampdesign",
+                         host="c010-shiny2", port=5432, dbname="testdb")
+  on.exit(DBI::dbDisconnect(my_db))
+    query <-  as.data.frame(dplyr::tbl(my_db,dplyr::sql(paste0("SELECT * FROM snp WHERE genome='",genome,"' AND chromosome='",chr,"' AND ((start>=",begin," AND start<=",end,") OR (\"end\">=",begin," AND \"end\"<=",end,"))"))))
+  end_time_q <- Sys.time()
+  message(paste0("Time for the Postgres DB SNP Query:",c(end_time_q - start_time_q)))
+  if(stringr::str_detect(minus.ind,"Minus")){
+    
+  }else{
+    return(query$start-begin) 
+  }
+  return(end-query$start)
+  
+}
+
+
 primer_design <- function(fastas,
                           namesx=names(fastas),
                           CGtarget=paste0(nchar(fastas[[1]][1])/2),
                           primer_size=20,primMaxSize=22,primMinSize=15,
                           primTm=55,primMinTm=50,primMaxTm=62,
                           amp_min=150,amp_max=300,
-                          exclude_cpg=T,primerNumber=10,
-                          advSet=T){
+                          exclude_cpg=T,
+                          exclude_snp=T,
+                          primerNumber=10,
+                          advSet=T,
+                          g="hg19"){
   
   
 
@@ -337,6 +382,9 @@ primer_design <- function(fastas,
   #assess the CGs for later exclusion
   cg_list <- lapply(fastas,function(x)gregexpr("tG",x))
 
+  # attr.list <- attributes(fastas)$Amplicons
+  # names(attr.list) <- names(fastas)
+  snp_list <- lapply(names(fastas),function(x)snp_query(attributes(fastas)$Amplicons[which(names(fastas)==x)],g,x))
 
   #create input file
   input.df <- matrix()
@@ -360,13 +408,24 @@ primer_design <- function(fastas,
                           paste0("TARGET=",nchar(fastas[[i]][1])-as.numeric(CGtarget),",2")
                         }else{
                           paste0("TARGET=",CGtarget,",2")}
+                        }else{
+                          paste0("TARGET=",round(nchar(fastas[[i]][1])/2),",2") #added on 31.07.2020
                         })
     if (exclude_cpg == TRUE){
       for(j in 1:length(cg_list[[i]][[1]])){
         input.df <- rbind(input.df,
-                          paste0("EXCLUDED_REGION=",cg_list[[i]][[1]][j],",2"))
+                          paste0("EXCLUDED_REGION=",cg_list[[i]][[1]][j]-1,",2")) #-1 because zero basedn
       }
     }
+    
+    if (exclude_snp == TRUE){{
+      if(length(snp_list[[i]])!=0)
+      for(p in 1:length(snp_list[[i]])){
+        input.df <- rbind(input.df,
+                          paste0("EXCLUDED_REGION=",snp_list[[i]][p]-1,",2"))
+      }}
+    }
+    
     input.df <- rbind(input.df,
                       "=")
   }
@@ -394,7 +453,7 @@ primer_design <- function(fastas,
 
 cpg_coordinates <- function(x,epic=F){
   start_time_q <- Sys.time()
-  my_db = DBI::dbConnect(RPostgreSQL::PostgreSQL(), user="postgres", password="postgres",
+  my_db = DBI::dbConnect(RPostgreSQL::PostgreSQL(), user="postgres", password="ampdesign",
                          host="c010-shiny2", port=5432, dbname="testdb")
   if(epic==T){
     result <- dplyr::tbl(my_db,dplyr::sql(paste0("SELECT * FROM hm850k WHERE id IN ('",stringr::str_flatten(x,collapse = "','"),"')")))
@@ -410,7 +469,7 @@ cpg_coordinates <- function(x,epic=F){
 
 
 generate_amplicons_coord <- function(x,g,extend=0,bs_convert=TRUE){
- #test: generate_amplicons_coord(as.data.frame("chr1:1565681-1565281"))
+ #test: generate_amplicons_coord(as.data.frame("chr1:1565681-1565881"),"hg19")
   
   # #select the genome of choice
   # if(g=="hg19"){
@@ -633,11 +692,14 @@ shape_fun <- function(x){
     primer_left_tm <- as.numeric(left[grep("TM",left.id)])
     size <- stringr::str_split_fixed(x[grep("SIZE",x)],"=",2)[,2]
     
-    prim_left <- GenomicRanges::GRanges(paste0(range@seqnames,":",c(IRanges::start(range)+prim_left_start),"-",c(IRanges::start(range)+prim_left_start+as.numeric(prim_left_len))))
-    prim_right <- GenomicRanges::GRanges(paste0(range@seqnames,":",c(IRanges::start(range)+prim_right_end-as.numeric(prim_right_len)),"-",c(IRanges::start(range)+prim_right_end)))
+    prim_left <- GenomicRanges::GRanges(paste0(range@seqnames,":",c(IRanges::start(range)+prim_left_start+1),"-",c(IRanges::start(range)+prim_left_start+as.numeric(prim_left_len))))
+    #prim_right <- GenomicRanges::GRanges(paste0(range@seqnames,":",c(IRanges::start(range)+prim_right_end-as.numeric(prim_right_len)+2),"-",c(IRanges::start(range)+prim_right_end+1)))
     if(strand=="+"){
+      prim_right <- GenomicRanges::GRanges(paste0(range@seqnames,":",c(IRanges::start(range)+prim_right_end-as.numeric(prim_right_len)+2),"-",c(IRanges::start(range)+prim_right_end+1)))
       amplicon <- GenomicRanges::GRanges(paste0(range@seqnames,":",IRanges::start(prim_left),"-",IRanges::end(prim_right)))
     }else{
+      prim_left <- GenomicRanges::GRanges(paste0(range@seqnames,":",c(IRanges::start(range)+prim_left_start),"-",c(IRanges::start(range)+prim_left_start+as.numeric(prim_left_len)-1)))
+      prim_right <- GenomicRanges::GRanges(paste0(range@seqnames,":",c(IRanges::start(range)+prim_right_end-as.numeric(prim_right_len)+1),"-",c(IRanges::start(range)+prim_right_end)))
       amplicon <- GenomicRanges::GRanges(paste0(range@seqnames,":",IRanges::start(prim_right),"-",IRanges::end(prim_left)))
     }
     
@@ -681,7 +743,7 @@ gviz_primer <- function(genome,chr,begin,end,primer_fwd.start,primer_fwd.length,
   
   ## DATABASE QUERY ##
   start_time_q <- Sys.time()
-  my_db = DBI::dbConnect(RPostgreSQL::PostgreSQL(), user="postgres", password="postgres",
+  my_db = DBI::dbConnect(RPostgreSQL::PostgreSQL(), user="postgres", password="ampdesign",
                          host="c010-shiny2", port=5432, dbname="testdb")
   on.exit(DBI::dbDisconnect(my_db))
 
@@ -721,7 +783,7 @@ gviz_primer <- function(genome,chr,begin,end,primer_fwd.start,primer_fwd.length,
     cg.df <- Biostrings::matchPattern("CG",Biostrings::reverseComplement(seq.cg))}else{
       cg.df <- Biostrings::matchPattern("CG",seq.cg)
     }
-  cg.gr <- GenomicRanges::GRanges(chr,strand = strand,ranges = IRanges::IRanges(cg.df@ranges@start+begin,width=2))
+  cg.gr <- GenomicRanges::GRanges(chr,strand = strand,ranges = IRanges::IRanges(cg.df@ranges@start+begin+1,width=2))
   cg.plot <- Gviz::AnnotationTrack(cg.gr,name="CpG",shape="box",fill="grey")
 
   #create a plot for the primers
@@ -729,7 +791,7 @@ gviz_primer <- function(genome,chr,begin,end,primer_fwd.start,primer_fwd.length,
   primer_start <- c(primer_fwd.start+2,primer_rev.end+3-primer_rev.length)
   primer_length <- c(primer_fwd.length,primer_rev.length)
   primer.gr <- GenomicRanges::GRanges(chr,strand = strand,ranges = IRanges::IRanges(primer_start+begin,width=primer_length))
-  primer.plot <-Gviz:: AnnotationTrack(primer.gr,name="Primer",shape="box",fill="brown4")
+  primer.plot <- Gviz:: AnnotationTrack(primer.gr,name="Primer",shape="box",fill="brown4")
   }
   
   #SNP track
@@ -784,6 +846,130 @@ gviz_primer <- function(genome,chr,begin,end,primer_fwd.start,primer_fwd.length,
   message(paste0("Time for the plot printing:",c(end_time2 - start_time)))
 }
 
+gviz_batch <- function(genome,chr,begin,end,primer_fwd,primer_rev,strand,grouping,selected.prim,primer=T){
+  # genome="hg19"
+  message(genome)
+  message(chr)
+  message(begin)
+  message(end)
+  message(primer_fwd)
+  message(primer_rev)
+  message(grouping)
+  message(selected.prim)
+  # chr="chr1"
+  # begin=221051893
+  # end=221052394
+  # primer_fwd=prims$UCSC.Primer.Left
+  # primer_rev=prims$UCSC.Primer.Right
+  # strand="+"
+  # start_time <- Sys.time()
+  # grouping <- prims$Amplicon.1
+  # selected.prim=1
+  
+  #AmpliconDesign::gviz_primer("hg19","chr1",1565681,1566182,39,20,326,20,"+")
+  #gviz_primer("hg19","chr19",43203328,43203689,63,20,324,23,"+")
+  print("Please wait while R is calculating")
+  # print(paste0(c(genome,chr,begin,end,primer_fwd.start,primer_fwd.length,
+  #                primer_rev.end,primer_rev.length,strand)))
+  
+  start_time <- Sys.time()
+  ## DATABASE QUERY ##
+  start_time_q <- Sys.time()
+  my_db = DBI::dbConnect(RPostgreSQL::PostgreSQL(), user="postgres", password="ampdesign",
+                         host="c010-shiny2", port=5432, dbname="testdb")
+  on.exit(DBI::dbDisconnect(my_db))
+  
+  query_list <- list(
+    "SNP"=as.data.frame(dplyr::tbl(my_db,dplyr::sql(paste0("SELECT * FROM snp WHERE genome='",genome,"' AND chromosome='",chr,"' AND ((start>=",begin," AND start<=",end,") OR (\"end\">=",begin," AND \"end\"<=",end,"))")))),
+    "CGI"=as.data.frame(dplyr::tbl(my_db,dplyr::sql(paste0("SELECT * FROM cgi WHERE genome='",genome,"' AND chromosome='",chr,"' AND ((start>=",begin," AND start<=",end,") OR (\"end\">=",begin," AND \"end\"<=",end,"))")))),
+    "genes"=as.data.frame(dplyr::tbl(my_db,dplyr::sql(paste0("SELECT * FROM genes WHERE genome='",genome,"' AND chromosome='",chr,"' AND ((start>=",begin," AND start<=",end,") OR (\"end\">=",begin," AND \"end\"<=",end,"))")))),
+    "repeats"=as.data.frame(dplyr::tbl(my_db,dplyr::sql(paste0("SELECT * FROM repeats WHERE genome='",genome,"' AND chromosome='",chr,"' AND ((start>=",begin," AND start<=",end,") OR (\"end\">=",begin," AND \"end\"<=",end,"))"))))
+  )
+  
+  end_time_q <- Sys.time()
+  message(paste0("Time for the Postgres DB Query:",c(end_time_q - start_time_q)))
+  
+  
+  ### generate tracks ##
+  gtrack <- Gviz::GenomeAxisTrack()
+  
+  #find CpGs within Track
+  seq.cg <- Biostrings::DNAString(discoverSequence(chr,begin,end,genome))
+  message("-- Retrieved DNA Sequence --")
+  #names(seq.cg) <- chr1
+  #sTrack <- Gviz::SequenceTrack(seq.cg)
+  cg.df <- Biostrings::matchPattern("CG",seq.cg)
+  cg.gr <- GenomicRanges::GRanges(chr,strand = strand,ranges = IRanges::IRanges(cg.df@ranges@start+begin+1,width=2))
+  cg.plot <- Gviz::AnnotationTrack(cg.gr,name="CpG",shape="box",fill="grey")
+  message("-- Retrieved CpGs --")
+  
+  #create a plot for the primers
+  if(primer==T){
+    primer.plot <- Gviz::AnnotationTrack(GRanges(c(primer_fwd,primer_rev)),group = rep(grouping,2),name="Primer")
+    #feature(primer.plot)[c(selected.prim,length(grouping)+selected.prim)] <- "selected"
+    primer.plot.selected <- Gviz::AnnotationTrack(GRanges(c(primer_fwd[selected.prim],primer_rev[selected.prim])),group = rep(grouping[selected.prim],2),name="Selected Primer",fill="darkred")
+  }
+  
+  message("-- Generated Primer Track --")
+  
+  #SNP track
+  if(nrow(query_list$SNP)!=0){
+    snp.plot <- Gviz::AnnotationTrack(query_list$SNP,name="SNP",shape="box",fill="palegreen4")
+  }else{
+    snp.plot <-  Gviz::AnnotationTrack(NULL,name="SNP",showID=T)  
+  }
+  message("-- Generated SNP Track --")
+  
+  #Repeat track
+  if(nrow(query_list$repeats)!=0){
+    rep.plot <- Gviz::AnnotationTrack(query_list$repeats,name="Repeats",shape="box",fill="sienna1")
+  }else{
+    rep.plot <-  Gviz::AnnotationTrack(NULL,name="Repeats",showID=T)  
+  }
+  message("-- Generated Repear Track --")
+  
+  #CGI track
+  if(nrow(query_list$CGI)!=0){
+    cgi.plot <- Gviz::AnnotationTrack(query_list$CGI,name="CGI",shape="box",fill="navyblue")
+  }else{
+    cgi.plot <-  Gviz::AnnotationTrack(NULL,name="CGI",showID=T)  
+  }
+  message("-- Generated CGI Track --")
+  
+  #add transcripts
+  if(nrow(query_list$genes)!=0){
+    genetrack <-  Gviz::GeneRegionTrack(query_list$genes,name="Transcripts",showID=T)
+  }else{
+    genetrack <-  Gviz::AnnotationTrack(NULL,name="Transcripts",showID=T)  
+  }
+  message("-- Generated Transcript Track --")
+  
+  Gviz::displayPars(snp.plot) <- list(size=5)
+  if(primer==T){
+    Gviz::displayPars(primer.plot) <- list(size=5)
+    Gviz::displayPars(primer.plot.selected) <- list(size=8)
+  }
+  
+  Gviz::displayPars(cg.plot) <- list(size=5)
+  Gviz::displayPars(cgi.plot) <- list(size=5)
+  Gviz::displayPars(rep.plot) <- list(size=5)
+  #Gviz::displayPars(genetrack) <- list(fontsize=10)
+  #gene <- coMET::knownGenes_UCSC(genome, chr, begin, end, showId=TRUE)
+  
+  end_time <- Sys.time()
+  message(paste0("Time for the plot calculation:",c(end_time - start_time)))
+  
+  #return(Gviz::plotTracks(list(sTrack,gtrack,cg.plot,primer.plot,genetrack,cgi.plot,rep.plot,snp.plot),from=begin,to=end,cex=0.8,fontcolor.exon=20))
+  if(primer==T){
+    #return(Gviz::plotTracks(list(gtrack,cg.plot,primer.plot,genetrack,cgi.plot,rep.plot,snp.plot),from=begin,to=end,cex=0.8,fontcolor.exon=20,selected="darkred"))
+    return(Gviz::plotTracks(list(gtrack,cg.plot,primer.plot.selected,primer.plot,genetrack,cgi.plot,rep.plot,snp.plot),from=begin,to=end,cex=0.8,fontcolor.exon=20))
+  }else{
+    return(Gviz::plotTracks(list(gtrack,cg.plot,genetrack,cgi.plot,rep.plot,snp.plot),from=begin,to=end,cex=0.8,fontcolor.exon=20))  
+  }
+  end_time2 <- Sys.time()
+  message(paste0("Time for the plot printing:",c(end_time2 - start_time)))
+}
+
 
 
 
@@ -805,10 +991,167 @@ primer_bs_bsalign <- function(primer_vec,
 # bowtie /C010-projects/Maxi_Schönung/Computational/genomes/genomes_bs_bsalign/hg19_bowtie_ct_ga_indexed.fa -c CACAaCCTCCCCAAaTaCTa -k 20 --large-index
 
   align <<- tempfile()
-  system(paste(path_to_bowtie,path_to_genome,"-c",paste(primer_vec,collapse = ","),"-k",k,"--large-index >",align))
+  system(paste(path_to_bowtie,path_to_genome,"-c",paste(primer_vec,collapse = ","),"-k",k," --best --large-index >",align))
   primer_align <- read.delim(align,header = F)[,-c(1,6,7)]
   colnames(primer_align) <- c("Strand","Chromosome","Start","Sequence","Mismatches")
   return(primer_align)
+}
+
+
+
+#a <- bs_ePCR("GATGtTtTTGTttAGAtTGTtttt","aACCCCTaCCCAaCACTaaC")
+#primer_fwd="GATGtTtTTGTttAGAtTGTtttt"
+#primer_rev="aACCCCTaCCCAaCACTaaC"
+#epcr_output(a[2,],g="hg19")
+
+bs_ePCR <-function(primer_fwd,
+         primer_rev,
+         path_to_bowtie="/srv/shiny-server/software/bowtie-1.2.2/bowtie",
+         path_to_genome="/var/ressources/hg19_bowtie_ct_ga_indexed.fa",
+         k=10,
+         maxpcr=1000){
+  stime <- Sys.time()
+  message(primer_fwd)
+  message(str(primer_fwd))
+  message(primer_rev)
+  
+  align <<- tempfile("ePCR")
+  message(align)
+  message(paste(path_to_bowtie,path_to_genome,"-c",paste(c(primer_fwd,primer_rev),collapse = ","),"-a -v 3 --large-index >",align))
+  system(paste(path_to_bowtie,path_to_genome,"-c",paste(c(primer_fwd,primer_rev),collapse = ","),"-a -v 3 --large-index >",align))
+  primer_align <- read.delim(align,header = F)#[,-c(1,6,7)]
+  #colnames(primer_align) <- c("Strand","Chromosome","Start","Sequence","Mismatches")
+  #return(primer_align)
+  
+  ## select valid pcrs ##
+  subs <- primer_align[primer_align$V1==0,]
+  revs <- primer_align[primer_align$V1==1,]
+  valids <- t(data.frame(row.names=c("Strand","Chromosome","Start_fwd","Sequence_fwd","Mismatches_fwd","Start_rev","Sequence_rev","Mismatches_rev")))
+  for(i in 1:nrow(subs)){
+    putative <- revs[revs$V2!=subs$V2[i]&revs$V3==subs$V3[i],]
+    if(subs$V2[i]=="+"){
+      ind <-  (putative$V4-subs$V4[i])<=1000&(putative$V4-subs$V4[i])>=100
+    }else{
+      ind <-  (subs$V4[i]-putative$V4)<=1000&(subs$V4[i]-putative$V4)>=100
+    }
+    if(sum(ind)>0){
+      selected <- putative[ind,]
+      subs.rep <- subs[i,c(2:5,8)][rep(seq_len(nrow(subs[i,c(2:5,8)])), each = nrow(selected)), ]
+      selected.df <- data.frame(subs.rep,selected[,c(4,5,8)])
+      colnames(selected.df) <- c("Strand","Chromosome","Start_fwd","Sequence_fwd","Mismatches_fwd","Start_rev","Sequence_rev","Mismatches_rev")
+      valids <- rbind(valids,selected.df)
+    }
+  }
+  etime <- Sys.time()
+  message(paste0("Time for the ePCR: ",c(etime-stime)))
+  return(valids)
+}
+
+#x=a[3,]g="hg19"
+epcr_output <- function(x,g){
+  if(x$Strand=="+"){
+  seq.ret <- discoverSequence(chromosome = as.character(x$Chromosome),begin = x$Start_fwd+1,end = (x$Start_rev-1+nchar(as.character(x$Sequence_rev))),genome=g)
+  bs.seq <- bs_convert(seq.ret)[[1]]
+  starting_vec <- c(1,x$Start_rev-x$Start_fwd+1)
+  ending_vec <- c(nchar(as.character(x$Sequence_fwd)),x$Start_rev+nchar(as.character(x$Sequence_rev))-x$Start_fwd)
+  mismatch_fwd <- as.numeric(do.call(rbind,stringr::str_split(stringr::str_split(x$Mismatches_fwd,",")[[1]],":"))[,1])+1
+  mismatch_rev <- do.call(rbind,stringr::str_split(stringr::str_split(x$Mismatches_rev,",")[[1]],":"))[,1]
+  if(mismatch_rev!=""){
+    mismatch_rev <- as.numeric(mismatch_rev)+x$Start_rev-x$Start_fwd+1}
+ coloring_epcr(bs.seq,starting_vec,ending_vec,mismatches=c(mismatch_fwd,mismatch_rev))}else{
+   
+   seq.ret <- discoverSequence(chromosome = as.character(x$Chromosome),begin = x$Start_rev,end =x$Start_fwd+nchar(as.character(x$Sequence_fwd)) ,genome=g)
+   bs.seq <- ga_convert(seq.ret)[[1]]
+   starting_vec <- c(1,x$Start_fwd-x$Start_rev+1)
+   ending_vec <- c(nchar(as.character(x$Sequence_rev)),x$Start_fwd+nchar(as.character(x$Sequence_fwd))-x$Start_rev)
+   mismatch_rev <- as.numeric(do.call(rbind,stringr::str_split(stringr::str_split(x$Mismatches_rev,",")[[1]],":"))[,1])+1
+   mismatch_fwd <- do.call(rbind,stringr::str_split(stringr::str_split(x$Mismatches_fwd,",")[[1]],":"))[,1]
+   if(mismatch_fwd!=""){
+     mismatch_fwd <- nchar(bs.seq)-as.numeric(mismatch_fwd)}
+   coloring_epcr(bs.seq,starting_vec,ending_vec,mismatches=c(mismatch_fwd,mismatch_rev))
+   }
+}
+
+
+
+coloring_epcr <- function(seq,startPrimer,endPrimer,linebreak=80,mismatches=NULL){
+  seq <- unlist(strsplit(seq,""))
+  str <-""
+  
+  for(i in 1:length(seq)){
+    if (i %in% startPrimer){
+      str <- paste0(str,"<mark>")
+    }
+  if(i %in% mismatches){
+    str <-paste0(str,"<font color='blue'>",seq[i],"</font>")
+  }else{
+    str <- paste0(str,seq[i])}
+    if(i %in% endPrimer){
+      str <- paste0(str,"</mark>")
+    }
+    if((i%%linebreak) == 0){
+      str <- paste0(str,"<br/>")
+    }
+  }
+  return(str)
+}
+
+#x=prims[1,]
+sequence_query <- function(x,strand,genome="hg19",fwd_length,rev_length){
+  message("--- Started Sequence Query ---")
+  #message(print(x$Amplicon.1))
+  range <- GenomicRanges::GRanges(x)
+  chr=as.character(range@seqnames@values)
+  begin=range@ranges@start
+  end=range@ranges@start+range@ranges@width-1
+  g=genome
+  message("--- Set Genomic Regions ---")
+  size=end-begin
+  
+  message(as.character(range@seqnames@values))
+  message(begin)
+  message(end)
+  message(g)
+  message(paste0("Fwd Length: ",fwd_length))
+  message(paste0("Fwd Length: ",rev_length))
+  seq <- discoverSequence(chromosome = as.character(range@seqnames@values),begin = begin,end = end,genome = g)
+  
+  message("--- Retrieved Sequence ---")
+  if(strand=="+"){
+    bs.seq <- bs_convert(seq)[[1]]
+  }else{
+    bs.seq <- ga_convert(seq)[[1]]
+  }
+  
+  
+  ########### DB QUERY ##############################################################################
+  message("--- Started DB Query ---")
+  start_time <- Sys.time()
+  ## DATABASE QUERY ##
+  start_time_q <- Sys.time()
+  my_db = DBI::dbConnect(RPostgreSQL::PostgreSQL(), user="postgres", password="ampdesign",
+                         host="c010-shiny2", port=5432, dbname="testdb")
+  on.exit(DBI::dbDisconnect(my_db))
+  
+  query_list <- list(
+    "SNP"=as.data.frame(dplyr::tbl(my_db,dplyr::sql(paste0("SELECT * FROM snp WHERE genome='",genome,"' AND chromosome='",chr,"' AND ((start>=",begin," AND start<=",end,") OR (\"end\">=",begin," AND \"end\"<=",end,"))")))),
+    "CGI"=as.data.frame(dplyr::tbl(my_db,dplyr::sql(paste0("SELECT * FROM cgi WHERE genome='",genome,"' AND chromosome='",chr,"' AND ((start>=",begin," AND start<=",end,") OR (\"end\">=",begin," AND \"end\"<=",end,"))")))),
+    "repeats"=as.data.frame(dplyr::tbl(my_db,dplyr::sql(paste0("SELECT * FROM repeats WHERE genome='",genome,"' AND chromosome='",chr,"' AND ((start>=",begin," AND start<=",end,") OR (\"end\">=",begin," AND \"end\"<=",end,"))"))))
+  )
+  
+  end_time_q <- Sys.time()
+  message(paste0("Time for the Postgres DB Query:",c(end_time_q - start_time_q)))
+  #######################################################################################
+  if(strand=="+"){
+  doColoring(begin = begin, seq=bs.seq,SNPposstart = query_list$SNP$start, SNPposwidth = query_list$SNP$end-query_list$SNP$start+1,
+             rbegin = query_list$repeats$start,rwidth = query_list$repeats$end-query_list$repeats$start+1,linebreak = 80,
+             startPrimer = c(1,size-rev_length+2),endPrimer = c(fwd_length,size+1),bs_conv = T,revSeq = F)
+    }else{
+  doColoring(begin = begin, seq=bs.seq,SNPposstart = query_list$SNP$start, SNPposwidth = query_list$SNP$end-query_list$SNP$start+1,
+             rbegin = query_list$repeats$start,rwidth = query_list$repeats$end-query_list$repeats$start+1,linebreak = 80,
+             startPrimer = c(1,size-fwd_length+2),endPrimer = c(rev_length,size+1),bs_conv = T,revSeq = T)
+      
+      }
 }
 
 

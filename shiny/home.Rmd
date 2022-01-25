@@ -26,7 +26,14 @@ The web tool supports state-of-the-art protocols to design primers for EpiTYPER 
 
 <br>
 
-AmpliconDesign has been developed by:
+**AmpliconDesign Publication and Benchmarking:** <br>
+AmpliconDesign – an interactive web server for the design of high-throughput targeted DNA methylation assays <br>
+*Maximilian Schönung, Jana Hess, Pascal Bawidamann, Sina Stäble, Joschka Hey, Jens Langstein, <br> Yassen Assenov, Dieter Weichenhan, Pavlo Lutsik, Daniel B. Lipka* <br>
+Epigenetics, 2020;   DOI: [10.1080/15592294.2020.1834921](https://www.tandfonline.com/doi/full/10.1080/15592294.2020.1834921)
+
+<br> 
+
+**AmpliconDesign has been developed by:**
 <br>
 
 Section of Translational Cancer Epigenomics, <br>
